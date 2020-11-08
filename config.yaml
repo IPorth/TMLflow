@@ -1,0 +1,22 @@
+samples:
+  - "Pat1_11_54964_I_TB"
+  - "Pat1_11_54964_IV_N"
+
+
+files:
+  - "Pat1_11_54964_I_TB_1"
+  - "Pat1_11_54964_I_TB_2"
+  - "Pat1_11_54964_IV_N_1"
+  - "Pat1_11_54964_IV_N_2"
+
+Reference:
+  - "/mnt/e/TMLflow-merged/data/reference/hg38.fa"
+
+Data:
+  - "/mnt/e/TMLflow-merged/data"
+
+
+duplicates: 2
+
+origin:
+  - "IONTORRENT"
