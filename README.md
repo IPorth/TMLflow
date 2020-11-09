@@ -12,8 +12,8 @@ Clone GitHub TMLflow repository into the directory
 
 ### Create and activate the environment
 At first time use, the environment hast do be created.
-    $ conda env create --name TMLflow --file environment.yaml
+`$ conda env create --name TMLflow --file environment.yaml`
 Then the environment can be activated by executing:
-    $ conda activate TMLflow
+`$ conda activate TMLflow`
 For deactiation execute:
-    $ conda deactivate
+`$ conda deactivate`
