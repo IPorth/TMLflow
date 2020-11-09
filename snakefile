@@ -22,7 +22,7 @@ rule bwa_map:
         "/mnt/e/TMLflow-merged/data/reference/hg38.fa",
         "/mnt/e/TMLflow-merged/data/fastq/{file}.fastq"
     output:
-        "/mnt/e/TMLflow-merged/mapped/{file}.bam"
+        "/mnt/e/TMLflow-merged/data/mapped/{file}.bam"
     params:
         rg="@RG\\tID:{file}\\tSM:{file}"
     shell:
