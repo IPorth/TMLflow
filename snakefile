@@ -1,17 +1,23 @@
+# Reading the config file
 configfile: "config.yaml"
+# Setting path as global variable
+REFDIR=config["Reference"]
+DATADIR=config["Data"]
+
+
 # Rule 0: includes all files, which should be present at the end of the run.
 # Output of the Current last rule is the merged bam file.
 rule all:
     input:
-        expand("/mnt/e/TMLflow-merged/data/merged/{sample}_merge.bam", sample=config["samples"])
+        expand("/mnt/e/TMLflow-merged/data/merged/{sample}_merge.bam.bai", sample=config["samples"])
 
 # Rule 1: convertes input bam file to fastq file using picard tools SamToFastq.
 # The step is specific for IONTORRENT data
 rule bam_to_fastq:
     input:
-        "/mnt/e/TMLflow-merged/data/single/{file}.bam"
+        DATADIR+"/single/{file}.bam"
     output:
-        "/mnt/e/TMLflow-merged/data/fastq/{file}.fastq"
+        DATADIR+"/fastq/{file}.fastq"
     shell:
         "picard SamToFastq --INPUT {input} --FASTQ {output}"
 
@@ -19,10 +25,10 @@ rule bam_to_fastq:
 # Second step saves the mapped reads as bam file and
 rule bwa_map:
     input:
-        "/mnt/e/TMLflow-merged/data/reference/hg38.fa",
-        "/mnt/e/TMLflow-merged/data/fastq/{file}.fastq"
+        REFDIR,
+        DATADIR+"/fastq/{file}.fastq"
     output:
-        "/mnt/e/TMLflow-merged/data/mapped/{file}.bam"
+        DATADIR+"/mapped/{file}.bam"
     params:
         rg="@RG\\tID:{file}\\tSM:{file}"
     shell:
@@ -32,19 +38,28 @@ rule bwa_map:
 # Preparation for index and merge
 rule samtools_sort:
     input:
-        "/mnt/e/TMLflow-merged/data/mapped/{file}.bam"
+        DATADIR+"/mapped/{file}.bam"
     output:
-        "/mnt/e/TMLflow-merged/data/sorted/{file}.sorted.bam"
+        DATADIR+"/sorted/{file}.sorted.bam"
     shell:
         "samtools sort -O bam {input} -o {output}"
 
-#Rule 4: All sorted bam files belonging to the same sample are merged into a single file
+# Rule 4: All sorted bam files belonging to the same sample are merged into a single file
 # This step is not required if there are no replicates
 rule samtools_merge:
     input:
-        "/mnt/e/TMLflow-merged/data/sorted/{sample}_1.sorted.bam",
-        "/mnt/e/TMLflow-merged/data/sorted/{sample}_2.sorted.bam"
+        DATADIR+"/sorted/{sample}_1.sorted.bam",
+        DATADIR+"/sorted/{sample}_2.sorted.bam"
     output:
-        "/mnt/e/TMLflow-merged/data/merged/{sample}_merge.bam"
+        DATADIR+"/merged/{sample}_merge.bam"
     shell:
         "samtools merge {output} {input}"
+
+# Rule 5: Indexing the (merged) bam files
+rule samtools_index:
+    input:
+        DATADIR+"/merged/{sample}_merge.bam"
+    output:
+        DATADIR+"/merged/{sample}_merge.bam.bai"
+    shell:
+        "samtools index {input}"
