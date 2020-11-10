@@ -9,11 +9,11 @@ files:
   - "Pat1_11_54964_IV_N_1"
   - "Pat1_11_54964_IV_N_2"
 
-Reference:
-  - "/mnt/e/TMLflow-merged/data/reference/hg38.fa"
-
-Data:
-  - "/mnt/e/TMLflow-merged/data"
+# Path to data-, reference and output directory (required)
+# Do not write the paths as a list!
+Reference: "/mnt/e/TMLflow-merged/data/reference/hg38.fa"
+Data: "/mnt/e/TMLflow-merged/data"
+Output: "/mnt/e/TMLflow-merged/data"
 
 
 duplicates: 2
