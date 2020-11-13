@@ -9,7 +9,9 @@ DATADIR=config["Data"]
 # Output of the Current last rule is the merged bam file.
 rule all:
     input:
-        expand("/mnt/e/TMLflow-merged/data/merged/{sample}_merge.bam.bai", sample=config["samples"])
+        expand(DATADIR+"/merged/{sample}_merge.bam.bai", sample=config["samples"]),
+        expand(DATADIR+"/normals/{normal}_mutect2.vcf.gz", normal=config["Normals"])
+
 
 # Rule 1: convertes input bam file to fastq file using picard tools SamToFastq.
 # The step is specific for IONTORRENT data
@@ -63,3 +65,40 @@ rule samtools_index:
         DATADIR+"/merged/{sample}_merge.bam.bai"
     shell:
         "samtools index {input}"
+
+# Rule 6a:
+rule mutect2_normal:
+    input:
+        ref=REFDIR,
+        norm=DATADIR+"/merged/{normal}_merge.bam",
+        bai=DATADIR+"/merged/{normal}_merge.bam.bai"
+    output:
+        DATADIR+"/normals/{normal}_mutect2.vcf.gz"
+    shell:
+        "gatk Mutect2 \
+        -R {input.ref} \
+        -I {input.norm} \
+        -max-mnp-distance 0\
+        -O {output}"
+
+
+
+
+# Rule 6: Variant calling with Mutect2 for tumor samples
+#rule mutect2_calling:
+#    input:
+#       bam: DATADIR+"/merged/{tumor}_merge.bam"
+#       ref: REFDIR
+#       germ:  "af-only-gnomad.vcf.gz"
+#       pon:
+#
+#    output:
+#        DATADIR+"/calls/{tumor}_mutect2.vcf"
+#    shell:
+#          "gatk Mutect2 \
+#          -R {input.ref} \
+#          -I {input.bam} \
+#          -L {}
+#          --germline-resource {input.germ} \
+#          --panel-of-normals {input.pon}\
+#          -O single_sample.vcf.gz"
