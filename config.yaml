@@ -1,21 +1,37 @@
 samples:
-  - "Pat1_11_54964_I_TB"
-  - "Pat1_11_54964_IV_N"
+  - "Pat11_11_54964_I_TB"
+  - "Pat11_11_54964_IV_N"
+  - "Pat1_19_8396_TB"
+  - "Pat1_19_14281_2-2_N"
 
 
 files:
-  - "Pat1_11_54964_I_TB_1"
-  - "Pat1_11_54964_I_TB_2"
-  - "Pat1_11_54964_IV_N_1"
-  - "Pat1_11_54964_IV_N_2"
+  - "Pat11_11_54964_I_TB_1"
+  - "Pat11_11_54964_I_TB_2"
+  - "Pat11_11_54964_IV_N_1"
+  - "Pat11_11_54964_IV_N_2"
+  - "Pat1_19_8396_TB_1"
+  - "Pat1_19_8396_TB_2"
+  - "Pat1_19_14281_2-2_N_1"
+  - "Pat1_19_14281_2-2_N_2"
+
+
+Normals:
+  - "Pat11_11_54964_IV_N"
+  - "Pat1_19_14281_2-2_N"
+
+Tumor:
+  - "Pat11_11_54964_I_TB"
+  - "Pat1_19_8396_TB"
 
 # Path to data-, reference and output directory (required)
 # Do not write the paths as a list!
 Reference: "/mnt/e/TMLflow-merged/data/reference/hg38.fa"
 Data: "/mnt/e/TMLflow-merged/data"
 Output: "/mnt/e/TMLflow-merged/data"
+# Make sure that your target region coordinates are based on the reference you use for mapping
+# If not, use liftOver to convert you regions to the right reference
+targt_bed: "/mnt/e/Target_regions/TML/TML_targets_CNVkit_hg38.bed"
 
 duplicates: 2
-
-origin:
-  - "IONTORRENT"
+origin: "IONTORRENT"
