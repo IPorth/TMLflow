@@ -3,6 +3,7 @@ configfile: "config.yaml"
 # Setting path as global variable
 REFDIR=config["Reference"]
 DATADIR=config["Data"]
+TARGETS=config["targt_bed"]
 
 
 # Rule 0: includes all files, which should be present at the end of the run.
@@ -10,7 +11,9 @@ DATADIR=config["Data"]
 rule all:
     input:
         expand(DATADIR+"/merged/{sample}_merge.bam.bai", sample=config["samples"]),
-        expand(DATADIR+"/normals/{normal}_mutect2.vcf.gz", normal=config["Normals"])
+        expand(DATADIR+"/normals/{normal}_mutect2.vcf.gz", normal=config["Normals"]),
+        DATADIR+"/normals/sample-name-map.xls",
+        "pon_db"
 
 
 # Rule 1: convertes input bam file to fastq file using picard tools SamToFastq.
@@ -66,7 +69,7 @@ rule samtools_index:
     shell:
         "samtools index {input}"
 
-# Rule 6a:
+# Rule 6a: variant calling for normals, prep for PoN
 rule mutect2_normal:
     input:
         ref=REFDIR,
@@ -81,7 +84,42 @@ rule mutect2_normal:
         -max-mnp-distance 0\
         -O {output}"
 
+# Rule 6b: Generate sample-name-mapped
+rule sample_map:
+    input:
+        sample=expand(DATADIR+"/normals/{normal}_mutect2.vcf.gz", normal=config["Normals"])
+    output:
+        DATADIR+"/normals/sample-name-map.xls"
+    params:
+        name=expand("{normal}_mutect2.vcf.gz", normal=config["Normals"]),
+    script:
+        "scripts/sample-name-map.R"
 
+
+# Rule 6c: Generation of genomics databas
+rule mutect2_GenomicsDB :
+    input:
+        ref=REFDIR,
+        bed=TARGETS,
+        normals=DATADIR+"/normals/sample-name-map.xls"
+    output:
+        "pon_db"
+    shell:
+        "gatk GenomicsDBImport -R {input.ref} -L {input.bed} \
+       --genomicsdb-workspace-path {output} \
+       --validate-sample-name-map TRUE\
+       --sample-name-map {input.normals}"
+
+#Rule 6d: Assemble sommatic panel of normals (PoN)
+rule mutect2_PoN_assembyl:
+    input:
+        ref=REFDIR,
+        pon_db=DATADIR+"/pon_db"
+    output:
+        DATADIR+"normals/TML_PoN.vcf.gz"
+    shell:
+        "gatk CreateSomaticPanelOfNormals -R {input.ref} \
+        -V {input.pon_db} -O {output}"
 
 
 # Rule 6: Variant calling with Mutect2 for tumor samples
