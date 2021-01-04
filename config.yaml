@@ -27,11 +27,16 @@ Tumor:
 # Path to data-, reference and output directory (required)
 # Do not write the paths as a list!
 Reference: "/mnt/e/TMLflow-merged/data/reference/hg38.fa"
-Data: "/mnt/e/TMLflow-merged/data"
+Data: "/mnt/e/TMLflow-merged/data/single"
 Output: "/mnt/e/TMLflow-merged/data"
 # Make sure that your target region coordinates are based on the reference you use for mapping
 # If not, use liftOver to convert you regions to the right reference
-targt_bed: "/mnt/e/Target_regions/TML/TML_targets_CNVkit_hg38.bed"
+# Bed file requires the columns: chr, start, end, amplicon name, gene name
+targt_bed: "/mnt/e/Target_regions/TML/Oncomine_TML.20180605_hg38.designed.bed"
 
 duplicates: 2
 origin: "IONTORRENT"
+
+
+
+
