@@ -15,16 +15,23 @@ rule all:
         DATADIR+"/normals/sample-name-map.xls",
         "pon_db"
 
+####################
+# Data preparation #
+####################
+
 
 # Rule 1: convertes input bam file to fastq file using picard tools SamToFastq.
 # The step is specific for IONTORRENT data
 rule bam_to_fastq:
     input:
-        DATADIR+"/single/{file}.bam"
+        DATADIR+"/{file}.bam"
     output:
         DATADIR+"/fastq/{file}.fastq"
     shell:
         "picard SamToFastq --INPUT {input} --FASTQ {output}"
+
+# Rule 2a: index the reference for use in bwa_mem
+
 
 # Rule 2: fastq generated in rule 1 mapped to reference genome hg38 in the first step
 # Second step saves the mapped reads as bam file and
@@ -69,7 +76,27 @@ rule samtools_index:
     shell:
         "samtools index {input}"
 
-# Rule 6a: variant calling for normals, prep for PoN
+
+###############
+# SNV Calling #
+###############
+
+# Rule 6a0: Generation of target bed files  
+rule bed_file_construction:
+    input:
+        bed=TARGETS
+    output:
+        vardict=DATADIR+"/target_files/Targets_Vardict.bed",
+        cnvkit=DATADIR+"/target_files/Targets_CNVkit_Mutect.bed",
+        ONCOCNV=DATADIR+"/target_files/Targets_ONCOCNV.bed"
+    script:
+        "scripts/target_bed_formating.R"
+# Rule 6a1: Generate reference dictionary for use in 6a2
+# Picard tools CreateSequenceDictionary
+
+
+
+# Rule 6a2: variant calling for normals, prep for PoN
 rule mutect2_normal:
     input:
         ref=REFDIR,
@@ -85,6 +112,7 @@ rule mutect2_normal:
         -O {output}"
 
 # Rule 6b: Generate sample-name-mapped
+# Wäre cool wenn man diese Regel in Python code umschreiben könnte, damit sie nicht im Flow Diagram auftaucht
 rule sample_map:
     input:
         sample=expand(DATADIR+"/normals/{normal}_mutect2.vcf.gz", normal=config["Normals"])
@@ -100,7 +128,7 @@ rule sample_map:
 rule mutect2_GenomicsDB :
     input:
         ref=REFDIR,
-        bed=TARGETS,
+        bed=DATADIR+"/target_files/Targets_CNVkit_Mutect.bed",
         normals=DATADIR+"/normals/sample-name-map.xls"
     output:
         "pon_db"
@@ -140,3 +168,23 @@ rule mutect2_PoN_assembyl:
 #          --germline-resource {input.germ} \
 #          --panel-of-normals {input.pon}\
 #          -O single_sample.vcf.gz"
+
+
+#rule vardict:
+#    input:
+#        ref=REFDIR,
+#        target=
+#        bam= DATADIR+"/merged/{sample}_merge.bam
+#        name="{sample}"
+#
+#    params:
+#        AF_THR= 0.1
+#    output:
+#
+#    shell:
+#        "vardict-java -G {input.ref}  -f {params.AF_THR}  -N {input.name}  -b {input.bam} \
+#        -c 1 -S 2 -E 3 -g 4 {input.target} | teststrandbias.R | var2vcf_valid.pl -N {input.name} -E -f {params.AF_THR} > {input.name}.vcf"
+
+
+
+
