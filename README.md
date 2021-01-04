@@ -1,8 +1,11 @@
 # TMLflow
-Pipeline for TML analysis
+Pipeline for TML analysis.
+ Uses bam files Ion Torrent S5 sequencer with Tumor Mutation Load Panel
+ Analysis: SNV, CNV, coverage and annotation 
+
 ## Step by step
 ### Install required software
-snakemake
+Conda or Miniconda
 
 ### Preparing a working directory
 Generate a working directory  
@@ -17,3 +20,10 @@ Then the environment can be activated by executing:
 `$ conda activate TMLflow`  
 For deactiation execute:  
 `$ conda deactivate`  
+
+### Required files
+- bam files (tumor and normal samples, unmatched)
+- target bed file (tab-separated; including chr, start, end, amplicon name and gene name in this order)
+- reference genome matching the target bed regions
+- adjusted config file 
+
