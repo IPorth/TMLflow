@@ -1,6 +1,6 @@
 # TMLflow
 Pipeline for TML analysis.
- Uses bam files Ion Torrent S5 sequencer with Tumor Mutation Load Panel
+ Uses bam files Ion Torrent S5 sequencer with Tumor Mutation Load Panel.
  Analysis: SNV, CNV, coverage and annotation 
 
 ## Step by step
@@ -27,3 +27,8 @@ For deactiation execute:
 - reference genome matching the target bed regions
 - adjusted config file 
 
+### Before you start the workflow
+To use bwa mem, the reference has to be indexed with the command bwa mem index. An index with samtools faidx is not sufficient.
+Execute the following code in the activated TMLflow environment
+`cd refdir` 
+`bwa mem index ref.fa`

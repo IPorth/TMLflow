@@ -1,0 +1,35 @@
+Building DAG of jobs...
+Using shell: /bin/bash
+Provided cores: 1 (use --cores to define parallelism)
+Rules claiming more threads will be scaled down.
+Job counts:
+	count	jobs
+	1	all
+	8	bam_to_fastq
+	1	bed_file_construction
+	8	bwa_map
+	4	samtools_index
+	4	samtools_merge
+	8	samtools_sort
+	34
+Select jobs to execute...
+
+[Fri Dec 18 11:50:26 2020]
+rule bam_to_fastq:
+    input: /mnt/e/TMLflow-merged/data/single/Pat11_11_54964_I_TB_1.bam
+    output: /mnt/e/TMLflow-merged/data/single/fastq/Pat11_11_54964_I_TB_1.fastq
+    jobid: 5
+    wildcards: file=Pat11_11_54964_I_TB_1
+
+Terminating processes on user request, this might take some time.
+[Fri Dec 18 11:50:36 2020]
+Error in rule bam_to_fastq:
+    jobid: 5
+    output: /mnt/e/TMLflow-merged/data/single/fastq/Pat11_11_54964_I_TB_1.fastq
+    shell:
+        picard SamToFastq --INPUT /mnt/e/TMLflow-merged/data/single/Pat11_11_54964_I_TB_1.bam --FASTQ /mnt/e/TMLflow-merged/data/single/fastq/Pat11_11_54964_I_TB_1.fastq
+        (one of the commands exited with non-zero exit code; note that snakemake uses bash strict mode!)
+
+Removing output files of failed job bam_to_fastq since they might be corrupted:
+/mnt/e/TMLflow-merged/data/single/fastq/Pat11_11_54964_I_TB_1.fastq
+Complete log: /mnt/c/Users/ladmin/Documents/GitHub/TMLflow/.snakemake/log/2020-12-18T115026.215835.snakemake.log

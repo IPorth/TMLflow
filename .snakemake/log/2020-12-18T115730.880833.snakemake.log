@@ -1,0 +1,30 @@
+Building DAG of jobs...
+Using shell: /bin/bash
+Provided cores: 1 (use --cores to define parallelism)
+Rules claiming more threads will be scaled down.
+Job counts:
+	count	jobs
+	1	all
+	1	bed_file_construction
+	2
+Select jobs to execute...
+
+[Fri Dec 18 11:57:30 2020]
+rule bed_file_construction:
+    input: /mnt/e/Target_regions/TML/Oncomine_TML.20180605_hg38.designed.bed
+    output: /mnt/e/TMLflow-merged/data/single/target_files/Targets_Vardict.bed, /mnt/e/TMLflow-merged/data/single/target_files/Targets_CNVkit_Mutect.bed, /mnt/e/TMLflow-merged/data/single/target_files/Targets_ONCOCNV.bed
+    jobid: 1
+
+Waiting at most 5 seconds for missing files.
+MissingOutputException in line 88 of /mnt/c/Users/ladmin/Documents/GitHub/TMLflow/Snakefile:
+Job Missing files after 5 seconds:
+/mnt/e/TMLflow-merged/data/single/target_files/Targets_Vardict.bed
+/mnt/e/TMLflow-merged/data/single/target_files/Targets_CNVkit_Mutect.bed
+/mnt/e/TMLflow-merged/data/single/target_files/Targets_ONCOCNV.bed
+This might be due to filesystem latency. If that is the case, consider to increase the wait time with --latency-wait.
+Job id: 1 completed successfully, but some output files are missing. 1
+  File "/home/ip8/miniconda3/envs/TMLflow/lib/python3.6/site-packages/snakemake/executors/__init__.py", line 575, in handle_job_success
+  File "/home/ip8/miniconda3/envs/TMLflow/lib/python3.6/site-packages/snakemake/executors/__init__.py", line 254, in handle_job_success
+Shutting down, this might take some time.
+Exiting because a job execution failed. Look above for error message
+Complete log: /mnt/c/Users/ladmin/Documents/GitHub/TMLflow/.snakemake/log/2020-12-18T115730.880833.snakemake.log

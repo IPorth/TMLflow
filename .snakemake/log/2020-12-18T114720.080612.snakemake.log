@@ -1,0 +1,7 @@
+Migrating .snakemake folder to new format...
+Migration complete
+Building DAG of jobs...
+MissingInputException in line 11 of /mnt/c/Users/ladmin/Documents/GitHub/TMLflow/Snakefile:
+Missing input files for rule all:
+/mnt/e/TMLflow-merged/data/single/normals/Pat1_19_14281_2-2_N_mutect2.vcf.gz
+/mnt/e/TMLflow-merged/data/single/normals/Pat11_11_54964_IV_N_mutect2.vcf.gz

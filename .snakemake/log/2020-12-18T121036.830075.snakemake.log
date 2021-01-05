@@ -1,0 +1,31 @@
+Building DAG of jobs...
+Using shell: /bin/bash
+Provided cores: 1 (use --cores to define parallelism)
+Rules claiming more threads will be scaled down.
+Job counts:
+	count	jobs
+	1	all
+	1	bed_file_construction
+	2
+Select jobs to execute...
+
+[Fri Dec 18 12:10:36 2020]
+rule bed_file_construction:
+    input: /mnt/e/Target_regions/TML/Oncomine_TML.20180605_hg38.designed.bed
+    output: /mnt/e/TMLflow-merged/data/single/target_files/Targets_Vardict.bed, /mnt/e/TMLflow-merged/data/single/target_files/Targets_CNVkit_Mutect.bed, /mnt/e/TMLflow-merged/data/single/target_files/Targets_ONCOCNV.bed
+    jobid: 1
+
+[Fri Dec 18 12:10:40 2020]
+Finished job 1.
+1 of 2 steps (50%) done
+Select jobs to execute...
+
+[Fri Dec 18 12:10:40 2020]
+localrule all:
+    input: /mnt/e/TMLflow-merged/data/single/target_files/Targets_Vardict.bed, /mnt/e/TMLflow-merged/data/single/target_files/Targets_CNVkit_Mutect.bed, /mnt/e/TMLflow-merged/data/single/target_files/Targets_ONCOCNV.bed
+    jobid: 0
+
+[Fri Dec 18 12:10:40 2020]
+Finished job 0.
+2 of 2 steps (100%) done
+Complete log: /mnt/c/Users/ladmin/Documents/GitHub/TMLflow/.snakemake/log/2020-12-18T121036.830075.snakemake.log

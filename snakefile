@@ -157,7 +157,7 @@ rule mutect2_PoN_assembyl:
 #       ref: REFDIR
 #       germ:  "af-only-gnomad.vcf.gz"
 #       pon:
-#
+#       target: DATADIR+"/target_files/Targets_CNVkit_Mutect.bed"
 #    output:
 #        DATADIR+"/calls/{tumor}_mutect2.vcf"
 #    shell:
@@ -173,7 +173,7 @@ rule mutect2_PoN_assembyl:
 #rule vardict:
 #    input:
 #        ref=REFDIR,
-#        target=
+#        target= DATADIR+"/target_files/Targets_Vardict.bed"
 #        bam= DATADIR+"/merged/{sample}_merge.bam
 #        name="{sample}"
 #
