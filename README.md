@@ -29,6 +29,6 @@ For deactiation execute:
 
 ### Before you start the workflow
 To use bwa mem, the reference has to be indexed with the command bwa mem index. An index with samtools faidx is not sufficient.
-Execute the following code in the activated TMLflow environment
-`cd refdir` 
-`bwa mem index ref.fa`
+Execute the following code in the activated TMLflow environment:  
+`$ cd refdir`   
+`$ bwa mem index ref.fa`  
