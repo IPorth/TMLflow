@@ -7,13 +7,16 @@ TARGETS=config["targt_bed"]
 
 
 # Rule 0: includes all files, which should be present at the end of the run.
-# Output of the Current last rule is the merged bam file.
+# Output of the current last rule of each chapter of the code 
 rule all:
     input:
         expand(DATADIR+"/merged/{sample}_merge.bam.bai", sample=config["samples"]),
         expand(DATADIR+"/normals/{normal}_mutect2.vcf.gz", normal=config["Normals"]),
         DATADIR+"/normals/sample-name-map.xls",
-        "pon_db"
+        DATADIR+"/pon_db",
+        DATADIR+"normals/TML_PoN.vcf.gz",
+        expand(DATADIR+"/calls/{tumor}_mutect2.vcf.gz", tumor=config["Tumor"])
+        
 
 ####################
 # Data preparation #
@@ -29,9 +32,6 @@ rule bam_to_fastq:
         DATADIR+"/fastq/{file}.fastq"
     shell:
         "picard SamToFastq --INPUT {input} --FASTQ {output}"
-
-# Rule 2a: index the reference for use in bwa_mem
-
 
 # Rule 2: fastq generated in rule 1 mapped to reference genome hg38 in the first step
 # Second step saves the mapped reads as bam file and
@@ -108,7 +108,7 @@ rule mutect2_normal:
         "gatk Mutect2 \
         -R {input.ref} \
         -I {input.norm} \
-        -max-mnp-distance 0\
+        -max-mnp-distance 0 \
         -O {output}"
 
 # Rule 6b: Generate sample-name-mapped
@@ -131,43 +131,48 @@ rule mutect2_GenomicsDB :
         bed=DATADIR+"/target_files/Targets_CNVkit_Mutect.bed",
         normals=DATADIR+"/normals/sample-name-map.xls"
     output:
-        "pon_db"
+        directory(DATADIR+"/pon_db")
     shell:
         "gatk GenomicsDBImport -R {input.ref} -L {input.bed} \
-       --genomicsdb-workspace-path {output} \
-       --validate-sample-name-map TRUE\
-       --sample-name-map {input.normals}"
+        --genomicsdb-workspace-path {output} \
+        --validate-sample-name-map TRUE\
+        --sample-name-map {input.normals} \
+        --merge-input-intervals TRUE"
+
+
 
 #Rule 6d: Assemble sommatic panel of normals (PoN)
 rule mutect2_PoN_assembyl:
     input:
-        ref=REFDIR,
-        pon_db=DATADIR+"/pon_db"
+        ref=REFDIR
+    params:
+        pon_db= "gendb://"+DATADIR+"/pon_db"
     output:
-        DATADIR+"normals/TML_PoN.vcf.gz"
+        DATADIR+"/normals/TML_PoN.vcf.gz"
     shell:
         "gatk CreateSomaticPanelOfNormals -R {input.ref} \
-        -V {input.pon_db} -O {output}"
+        -V {params.pon_db} -O {output}"
 
 
-# Rule 6: Variant calling with Mutect2 for tumor samples
-#rule mutect2_calling:
-#    input:
-#       bam: DATADIR+"/merged/{tumor}_merge.bam"
-#       ref: REFDIR
-#       germ:  "af-only-gnomad.vcf.gz"
-#       pon:
-#       target: DATADIR+"/target_files/Targets_CNVkit_Mutect.bed"
-#    output:
-#        DATADIR+"/calls/{tumor}_mutect2.vcf"
-#    shell:
-#          "gatk Mutect2 \
-#          -R {input.ref} \
-#          -I {input.bam} \
-#          -L {}
-#          --germline-resource {input.germ} \
-#          --panel-of-normals {input.pon}\
-#          -O single_sample.vcf.gz"
+#Rule 6: Variant calling with Mutect2 for tumor samples
+rule mutect2_calling:
+    input:
+       bam=DATADIR+"/merged/{tumor}_merge.bam",
+       ref=REFDIR,
+       germ="support/somatic-hg38_af-only-gnomad.hg38.vcf.gz",
+       pon=DATADIR+"/normals/TML_PoN.vcf.gz",
+       target=DATADIR+"/target_files/Targets_CNVkit_Mutect.bed"
+    output:
+        DATADIR+"/calls/{tumor}_mutect2.vcf.gz"
+    shell:
+          """gatk Mutect2 \
+          -R {input.ref} \
+          -I {input.bam} \
+          -L {input.target} \
+          --germline-resource {input.germ} \
+          --panel-of-normals {input.pon} \
+          --max-reads-per-alignment-start 0 \            
+          -O {output} """
 
 
 #rule vardict:
@@ -178,7 +183,7 @@ rule mutect2_PoN_assembyl:
 #        name="{sample}"
 #
 #    params:
-#        AF_THR= 0.1
+#        AF_THR= 0.05
 #    output:
 #
 #    shell:
