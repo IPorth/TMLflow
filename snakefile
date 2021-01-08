@@ -4,18 +4,19 @@ configfile: "config.yaml"
 REFDIR=config["Reference"]
 DATADIR=config["Data"]
 TARGETS=config["targt_bed"]
-
+OUTDIR=config["Output"]
 
 # Rule 0: includes all files, which should be present at the end of the run.
 # Output of the current last rule of each chapter of the code 
 rule all:
     input:
-        expand(DATADIR+"/merged/{sample}_merge.bam.bai", sample=config["samples"]),
-        expand(DATADIR+"/normals/{normal}_mutect2.vcf.gz", normal=config["Normals"]),
-        DATADIR+"/normals/sample-name-map.xls",
-        DATADIR+"/pon_db",
-        DATADIR+"normals/TML_PoN.vcf.gz",
-        expand(DATADIR+"/calls/{tumor}_mutect2.vcf.gz", tumor=config["Tumor"])
+        expand(OUTDIR+"/merged/{sample}_merge.bam.bai", sample=config["samples"]),
+        expand(OUTDIR+"/normals/{normal}_mutect2.vcf.gz", normal=config["Normals"]),
+        OUTDIR+"/normals/sample-name-map.xls",
+        OUTDIR+"/pon_db",
+        OUTDIR+"/normals/TML_PoN.vcf.gz",
+        expand(OUTDIR+"/calls/{tumor}_mutect2.vcf.gz", tumor=config["Tumor"]),
+        expand(OUTDIR+"/vardict/{tumor}_vardict.vcf", tumor=config["Tumor"])
         
 
 ####################
@@ -29,7 +30,7 @@ rule bam_to_fastq:
     input:
         DATADIR+"/{file}.bam"
     output:
-        DATADIR+"/fastq/{file}.fastq"
+        OUTDIR+"/fastq/{file}.fastq"
     shell:
         "picard SamToFastq --INPUT {input} --FASTQ {output}"
 
@@ -38,9 +39,9 @@ rule bam_to_fastq:
 rule bwa_map:
     input:
         REFDIR,
-        DATADIR+"/fastq/{file}.fastq"
+        OUTDIR+"/fastq/{file}.fastq"
     output:
-        DATADIR+"/mapped/{file}.bam"
+        OUTDIR+"/mapped/{file}.bam"
     params:
         rg="@RG\\tID:{file}\\tSM:{file}"
     shell:
@@ -50,9 +51,9 @@ rule bwa_map:
 # Preparation for index and merge
 rule samtools_sort:
     input:
-        DATADIR+"/mapped/{file}.bam"
+        OUTDIR+"/mapped/{file}.bam"
     output:
-        DATADIR+"/sorted/{file}.sorted.bam"
+        OUTDIR+"/sorted/{file}.sorted.bam"
     shell:
         "samtools sort -O bam {input} -o {output}"
 
@@ -60,19 +61,19 @@ rule samtools_sort:
 # This step is not required if there are no replicates
 rule samtools_merge:
     input:
-        DATADIR+"/sorted/{sample}_1.sorted.bam",
-        DATADIR+"/sorted/{sample}_2.sorted.bam"
+        OUTDIR+"/sorted/{sample}_1.sorted.bam",
+        OUTDIR+"/sorted/{sample}_2.sorted.bam"
     output:
-        DATADIR+"/merged/{sample}_merge.bam"
+        OUTDIR+"/merged/{sample}_merge.bam"
     shell:
         "samtools merge {output} {input}"
 
 # Rule 5: Indexing the (merged) bam files
 rule samtools_index:
     input:
-        DATADIR+"/merged/{sample}_merge.bam"
+        OUTDIR+"/merged/{sample}_merge.bam"
     output:
-        DATADIR+"/merged/{sample}_merge.bam.bai"
+        OUTDIR+"/merged/{sample}_merge.bam.bai"
     shell:
         "samtools index {input}"
 
@@ -86,9 +87,9 @@ rule bed_file_construction:
     input:
         bed=TARGETS
     output:
-        vardict=DATADIR+"/target_files/Targets_Vardict.bed",
-        cnvkit=DATADIR+"/target_files/Targets_CNVkit_Mutect.bed",
-        ONCOCNV=DATADIR+"/target_files/Targets_ONCOCNV.bed"
+        vardict=OUTDIR+"/target_files/Targets_Vardict.bed",
+        cnvkit=OUTDIR+"/target_files/Targets_CNVkit_Mutect.bed",
+        ONCOCNV=OUTDIR+"/target_files/Targets_ONCOCNV.bed"
     script:
         "scripts/target_bed_formating.R"
 # Rule 6a1: Generate reference dictionary for use in 6a2
@@ -100,24 +101,25 @@ rule bed_file_construction:
 rule mutect2_normal:
     input:
         ref=REFDIR,
-        norm=DATADIR+"/merged/{normal}_merge.bam",
-        bai=DATADIR+"/merged/{normal}_merge.bam.bai"
+        norm=OUTDIR+"/merged/{normal}_merge.bam",
+        bai=OUTDIR+"/merged/{normal}_merge.bam.bai"
     output:
-        DATADIR+"/normals/{normal}_mutect2.vcf.gz"
+        OUTDIR+"/normals/{normal}_mutect2.vcf.gz"
     shell:
         "gatk Mutect2 \
         -R {input.ref} \
         -I {input.norm} \
         -max-mnp-distance 0 \
+        --max-reads-per-alignment-start 0 \
         -O {output}"
 
 # Rule 6b: Generate sample-name-mapped
 # Wäre cool wenn man diese Regel in Python code umschreiben könnte, damit sie nicht im Flow Diagram auftaucht
 rule sample_map:
     input:
-        sample=expand(DATADIR+"/normals/{normal}_mutect2.vcf.gz", normal=config["Normals"])
+        sample=expand(OUTDIR+"/normals/{normal}_mutect2.vcf.gz", normal=config["Normals"])
     output:
-        DATADIR+"/normals/sample-name-map.xls"
+        OUTDIR+"/normals/sample-name-map.xls"
     params:
         name=expand("{normal}_mutect2.vcf.gz", normal=config["Normals"]),
     script:
@@ -128,16 +130,16 @@ rule sample_map:
 rule mutect2_GenomicsDB :
     input:
         ref=REFDIR,
-        bed=DATADIR+"/target_files/Targets_CNVkit_Mutect.bed",
-        normals=DATADIR+"/normals/sample-name-map.xls"
+        bed=OUTDIR+"/target_files/Targets_CNVkit_Mutect.bed",
+        normals=OUTDIR+"/normals/sample-name-map.xls"
     output:
-        directory(DATADIR+"/pon_db")
+        directory(OUTDIR+"/pon_db")
     shell:
         "gatk GenomicsDBImport -R {input.ref} -L {input.bed} \
         --genomicsdb-workspace-path {output} \
         --validate-sample-name-map TRUE\
         --sample-name-map {input.normals} \
-        --merge-input-intervals TRUE"
+        --merge-input-intervals TRUE "
 
 
 
@@ -145,9 +147,9 @@ rule mutect2_GenomicsDB :
 rule mutect2_PoN_assembyl:
     input:
         ref=REFDIR,
-        pon_db=DATADIR+"/pon_db"
+        pon_db=OUTDIR+"/pon_db"
     output:
-        DATADIR+"/normals/TML_PoN.vcf.gz"
+        OUTDIR+"/normals/TML_PoN.vcf.gz"
     shell:
         "gatk CreateSomaticPanelOfNormals -R {input.ref} \
         -V gendb://{input.pon_db} -O {output}"
@@ -156,31 +158,33 @@ rule mutect2_PoN_assembyl:
 #Rule 6: Variant calling with Mutect2 for tumor samples
 rule mutect2_calling:
     input:
-       bam=DATADIR+"/merged/{tumor}_merge.bam",
+       bam=OUTDIR+"/merged/{tumor}_merge.bam",
        ref=REFDIR,
        germ="support/somatic-hg38_af-only-gnomad.hg38.vcf.gz",
-       pon=DATADIR+"/normals/TML_PoN.vcf.gz",
-       target=DATADIR+"/target_files/Targets_CNVkit_Mutect.bed"
+       pon=OUTDIR+"/normals/TML_PoN.vcf.gz",
+       target=OUTDIR+"/target_files/Targets_CNVkit_Mutect.bed"
     output:
-        DATADIR+"/calls/{tumor}_mutect2.vcf.gz"
+        OUTDIR+"/mutect/{tumor}_mutect2.vcf.gz"
     shell:
           "gatk Mutect2 -R {input.ref} -I {input.bam} --intervals {input.target} --germline-resource {input.germ} --panel-of-normals {input.pon} --max-reads-per-alignment-start 0 -O {output}"
 
 
-#rule vardict:
-#    input:
-#        ref=REFDIR,
-#        target= DATADIR+"/target_files/Targets_Vardict.bed"
-#        bam= DATADIR+"/merged/{tumor}_merge.bam
-#        name="{tumor}"
-#
-#    params:
-#        AF_THR= 0.05
-#    output:
-#       
-#    shell:
-#        "vardict-java -G {input.ref}  -f {params.AF_THR}  -N {input.name}  -b {input.bam} \
-#        -c 1 -S 2 -E 3 -g 4 {input.target} | teststrandbias.R | var2vcf_valid.pl -N {input.name} -E -f {params.AF_THR} > {input.name}.vcf"
+rule vardict:
+    input:
+        ref=REFDIR,
+        target= OUTDIR+"/target_files/Targets_Vardict.bed",
+        bam= OUTDIR+"/merged/{tumor}_merge.bam",
+    
+    params:
+        AF_THR= 0.05,
+        name="{tumor}"
+    
+    threads: 2
+    output:
+       OUTDIR+"/vardict/{tumor}_vardict.vcf"
+    shell:
+        "vardict-java -G {input.ref}  -f {params.AF_THR}  -N {params.name}  -b {input.bam} -th {threads} -y\
+        -c 1 -S 2 -E 3 -g 4 {input.target} | teststrandbias.R | var2vcf_valid.pl -N {params.name} -E -f {params.AF_THR} > {output}"
 
 
 
