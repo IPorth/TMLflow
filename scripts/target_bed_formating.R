@@ -1,11 +1,14 @@
+# Script taking input from snakemake workflow and formats bed files for downstream 
+# applications Mutect2, CNVkit, Vardict and ONCOCNV
+
 target <- snakemake@input[["bed"]]
-print (target)
+#print (target)
 Path_ONCOCNV <- snakemake@output[["ONCOCNV"]]
-print(Path_ONCOCNV)
+#print(Path_ONCOCNV)
 Path_cnvkit <- snakemake@output[["cnvkit"]]
-print(Path_cnvkit)
+#print(Path_cnvkit)
 Path_vardict <- snakemake@output[["vardict"]]
-print(Path_vardict)
+#print(Path_vardict)
 
 
 TML_split_bed <- read.table(target, header = FALSE, sep = "\t")

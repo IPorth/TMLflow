@@ -144,14 +144,13 @@ rule mutect2_GenomicsDB :
 #Rule 6d: Assemble sommatic panel of normals (PoN)
 rule mutect2_PoN_assembyl:
     input:
-        ref=REFDIR
-    params:
-        pon_db= "gendb://"+DATADIR+"/pon_db"
+        ref=REFDIR,
+        pon_db=DATADIR+"/pon_db"
     output:
         DATADIR+"/normals/TML_PoN.vcf.gz"
     shell:
         "gatk CreateSomaticPanelOfNormals -R {input.ref} \
-        -V {params.pon_db} -O {output}"
+        -V gendb://{input.pon_db} -O {output}"
 
 
 #Rule 6: Variant calling with Mutect2 for tumor samples
@@ -165,27 +164,20 @@ rule mutect2_calling:
     output:
         DATADIR+"/calls/{tumor}_mutect2.vcf.gz"
     shell:
-          """gatk Mutect2 \
-          -R {input.ref} \
-          -I {input.bam} \
-          -L {input.target} \
-          --germline-resource {input.germ} \
-          --panel-of-normals {input.pon} \
-          --max-reads-per-alignment-start 0 \            
-          -O {output} """
+          "gatk Mutect2 -R {input.ref} -I {input.bam} --intervals {input.target} --germline-resource {input.germ} --panel-of-normals {input.pon} --max-reads-per-alignment-start 0 -O {output}"
 
 
 #rule vardict:
 #    input:
 #        ref=REFDIR,
 #        target= DATADIR+"/target_files/Targets_Vardict.bed"
-#        bam= DATADIR+"/merged/{sample}_merge.bam
-#        name="{sample}"
+#        bam= DATADIR+"/merged/{tumor}_merge.bam
+#        name="{tumor}"
 #
 #    params:
 #        AF_THR= 0.05
 #    output:
-#
+#       
 #    shell:
 #        "vardict-java -G {input.ref}  -f {params.AF_THR}  -N {input.name}  -b {input.bam} \
 #        -c 1 -S 2 -E 3 -g 4 {input.target} | teststrandbias.R | var2vcf_valid.pl -N {input.name} -E -f {params.AF_THR} > {input.name}.vcf"
