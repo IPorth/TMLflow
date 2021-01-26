@@ -9,7 +9,9 @@ dependencies:
   - gatk4 =4.1.9.0-0
   - r-bcbiobase =0.6.14-0
   - vardict-java =1.8.2-0
-
+  - bedtools =2.30.0-0
+  - vcftools =0.1.16
+  - ensembl-vep =102.0-0
 
 
   

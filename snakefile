@@ -15,14 +15,12 @@ rule all:
         OUTDIR+"/normals/sample-name-map.xls",
         OUTDIR+"/pon_db",
         OUTDIR+"/normals/TML_PoN.vcf.gz",
-        expand(OUTDIR+"/calls/{tumor}_mutect2.vcf.gz", tumor=config["Tumor"]),
-        expand(OUTDIR+"/vardict/{tumor}_vardict.vcf", tumor=config["Tumor"])
+        expand(OUTDIR+"/TP_calls/{tumor}_SNV_Intersect.vcf", tumor=config["Tumor"])
         
 
 ####################
 # Data preparation #
 ####################
-
 
 # Rule 1: convertes input bam file to fastq file using picard tools SamToFastq.
 # The step is specific for IONTORRENT data
@@ -77,6 +75,7 @@ rule samtools_index:
     shell:
         "samtools index {input}"
 
+# Sequencing metrics: FastQC und TarSeqQC 
 
 ###############
 # SNV Calling #
@@ -93,9 +92,7 @@ rule bed_file_construction:
     script:
         "scripts/target_bed_formating.R"
 # Rule 6a1: Generate reference dictionary for use in 6a2
-# Picard tools CreateSequenceDictionary
-
-
+# Picard tools CreateSequenceDictionary --> readme integriert
 
 # Rule 6a2: variant calling for normals, prep for PoN
 rule mutect2_normal:
@@ -141,8 +138,6 @@ rule mutect2_GenomicsDB :
         --sample-name-map {input.normals} \
         --merge-input-intervals TRUE "
 
-
-
 #Rule 6d: Assemble sommatic panel of normals (PoN)
 rule mutect2_PoN_assembyl:
     input:
@@ -155,7 +150,7 @@ rule mutect2_PoN_assembyl:
         -V gendb://{input.pon_db} -O {output}"
 
 
-#Rule 6: Variant calling with Mutect2 for tumor samples
+# Rule 7: SNV calling with Mutect2 for tumor samples
 rule mutect2_calling:
     input:
        bam=OUTDIR+"/merged/{tumor}_merge.bam",
@@ -169,22 +164,58 @@ rule mutect2_calling:
           "gatk Mutect2 -R {input.ref} -I {input.bam} --intervals {input.target} --germline-resource {input.germ} --panel-of-normals {input.pon} --max-reads-per-alignment-start 0 -O {output}"
 
 
+# Rule 7a: filter Mutect2 calls using gatk FilterMutectCalls
+
+rule mutect2_filtering:
+    input:
+        vcf=OUTDIR+"/mutect/{tumor}_mutect2.vcf.gz",
+        ref=REFDIR
+    output: 
+        OUTDIR+"/mutect/{tumor}_mutect2_filtered.vcf"
+    shell:
+        "gatk FilterMutectCalls \
+        -V {input.vcf} \
+        -R {input.ref} \
+        -O {output}"
+
+# Rule 8: SNV calling with Vardict
 rule vardict:
     input:
         ref=REFDIR,
         target= OUTDIR+"/target_files/Targets_Vardict.bed",
         bam= OUTDIR+"/merged/{tumor}_merge.bam",
-    
     params:
-        AF_THR= 0.05,
+        AF_THR= 0.01,
         name="{tumor}"
-    
     threads: 2
     output:
        OUTDIR+"/vardict/{tumor}_vardict.vcf"
     shell:
         "vardict-java -G {input.ref}  -f {params.AF_THR}  -N {params.name}  -b {input.bam} -th {threads} -y\
         -c 1 -S 2 -E 3 -g 4 {input.target} | teststrandbias.R | var2vcf_valid.pl -N {params.name} -E -f {params.AF_THR} > {output}"
+
+
+rule vcftools_intersect:
+    input:
+        mut_vcf=OUTDIR+"/mutect/{tumor}_mutect2_filtered.vcf",
+        var_vcf=OUTDIR+"/vardict/{tumor}_vardict.vcf"
+    output:
+        inter=OUTDIR+"/TP_calls/{tumor}_SNV_Intersect.vcf",
+        var_filter= OUTDIR+"/vardict/{tumor}_vardict_filtered.vcf"
+    shell:
+        "vcftools --vcf {input.var_vcf} --remove-filtered-all --recode --stdout > {output.var_filter}"
+        "bedtools intersect -a {input.mut_vcf}  -b {output.var_filter} > {output.inter}" 
+# Intersect + analyse VCFS
+
+# Annotation 
+
+# Grafical output SNV Analysis
+
+###############
+# CNV Calling #
+###############
+
+
 
 
 
