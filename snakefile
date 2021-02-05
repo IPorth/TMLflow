@@ -16,6 +16,7 @@ rule all:
         OUTDIR+"/pon_db",
         OUTDIR+"/normals/TML_PoN.vcf.gz",
         expand(OUTDIR+"/TP_calls/{tumor}_SNV_Intersect.vcf", tumor=config["Tumor"])
+   
         
 
 ####################
@@ -94,12 +95,14 @@ rule bed_file_construction:
 # Rule 6a1: Generate reference dictionary for use in 6a2
 # Picard tools CreateSequenceDictionary --> readme integriert
 
+# Integrate the filtering in the step, if it works do this also for mutect filtering to reduce numer of rules
 # Rule 6a2: variant calling for normals, prep for PoN
 rule mutect2_normal:
     input:
         ref=REFDIR,
         norm=OUTDIR+"/merged/{normal}_merge.bam",
         bai=OUTDIR+"/merged/{normal}_merge.bam.bai"
+    threads: 4
     output:
         OUTDIR+"/normals/{normal}_mutect2.vcf.gz"
     shell:
@@ -107,18 +110,31 @@ rule mutect2_normal:
         -R {input.ref} \
         -I {input.norm} \
         -max-mnp-distance 0 \
-        --max-reads-per-alignment-start 0 \
+        --max-reads-per-alignment-start 2500 \
+        --native-pair-hmm-threads {threads} \
+        -O {output}"
+
+rule mutect2_normal_filtering:
+    input:
+        vcf=OUTDIR+"/normals/{normal}_mutect2.vcf.gz",
+        ref=REFDIR
+    output:
+        OUTDIR+"/normals/{normal}_mutect2_filtered.vcf.gz"
+    shell:
+        "gatk FilterMutectCalls \
+        -V {input.vcf} \
+        -R {input.ref} \
         -O {output}"
 
 # Rule 6b: Generate sample-name-mapped
 # Wäre cool wenn man diese Regel in Python code umschreiben könnte, damit sie nicht im Flow Diagram auftaucht
 rule sample_map:
     input:
-        sample=expand(OUTDIR+"/normals/{normal}_mutect2.vcf.gz", normal=config["Normals"])
+        sample=expand(OUTDIR+"/normals/{normal}_mutect2_filtered.vcf.gz", normal=config["Normals"])
     output:
         OUTDIR+"/normals/sample-name-map.xls"
     params:
-        name=expand("{normal}_mutect2.vcf.gz", normal=config["Normals"]),
+        name=expand("{normal}_mutect2_filtered.vcf.gz", normal=config["Normals"]),
     script:
         "scripts/sample-name-map.R"
 
@@ -128,7 +144,9 @@ rule mutect2_GenomicsDB :
     input:
         ref=REFDIR,
         bed=OUTDIR+"/target_files/Targets_CNVkit_Mutect.bed",
+        target=OUTDIR+"/target_files/Targets_CNVkit_Mutect.bed",
         normals=OUTDIR+"/normals/sample-name-map.xls"
+    threads: workflow.cores
     output:
         directory(OUTDIR+"/pon_db")
     shell:
@@ -136,6 +154,7 @@ rule mutect2_GenomicsDB :
         --genomicsdb-workspace-path {output} \
         --validate-sample-name-map TRUE\
         --sample-name-map {input.normals} \
+        --intervals {input.target} \
         --merge-input-intervals TRUE "
 
 #Rule 6d: Assemble sommatic panel of normals (PoN)
@@ -153,16 +172,20 @@ rule mutect2_PoN_assembyl:
 # Rule 7: SNV calling with Mutect2 for tumor samples
 rule mutect2_calling:
     input:
-       bam=OUTDIR+"/merged/{tumor}_merge.bam",
-       ref=REFDIR,
-       germ="support/somatic-hg38_af-only-gnomad.hg38.vcf.gz",
-       pon=OUTDIR+"/normals/TML_PoN.vcf.gz",
-       target=OUTDIR+"/target_files/Targets_CNVkit_Mutect.bed"
+        bam=OUTDIR+"/merged/{tumor}_merge.bam",
+        ref=REFDIR,
+        germ="support/somatic-hg38_af-only-gnomad.hg38.vcf.gz",
+        pon=OUTDIR+"/normals/TML_PoN.vcf.gz",
+        target=OUTDIR+"/target_files/Targets_CNVkit_Mutect.bed",
+        bai=OUTDIR+"/merged/{tumor}_merge.bam.bai"
+    threads: 4
     output:
         OUTDIR+"/mutect/{tumor}_mutect2.vcf.gz"
     shell:
-          "gatk Mutect2 -R {input.ref} -I {input.bam} --intervals {input.target} --germline-resource {input.germ} --panel-of-normals {input.pon} --max-reads-per-alignment-start 0 -O {output}"
-
+        """gatk Mutect2 -R {input.ref} -I {input.bam} \
+        --intervals {input.target} --native-pair-hmm-threads {threads} \
+        --germline-resource {input.germ} --panel-of-normals {input.pon} \
+        --max-reads-per-alignment-start 0 -O {output}"""
 
 # Rule 7a: filter Mutect2 calls using gatk FilterMutectCalls
 
@@ -184,6 +207,7 @@ rule vardict:
         ref=REFDIR,
         target= OUTDIR+"/target_files/Targets_Vardict.bed",
         bam= OUTDIR+"/merged/{tumor}_merge.bam",
+        bai=OUTDIR+"/merged/{tumor}_merge.bam.bai"
     params:
         AF_THR= 0.01,
         name="{tumor}"
@@ -201,10 +225,12 @@ rule vcftools_intersect:
         var_vcf=OUTDIR+"/vardict/{tumor}_vardict.vcf"
     output:
         inter=OUTDIR+"/TP_calls/{tumor}_SNV_Intersect.vcf",
-        var_filter= OUTDIR+"/vardict/{tumor}_vardict_filtered.vcf"
+        var_filter= OUTDIR+"/vardict/{tumor}_vardict_filtered.vcf",
+        mut_filter= OUTDIR+"/mutect/{tumor}_mutect2_filtered_Pass.vcf"
     shell:
         "vcftools --vcf {input.var_vcf} --remove-filtered-all --recode --stdout > {output.var_filter}"
-        "bedtools intersect -a {input.mut_vcf}  -b {output.var_filter} > {output.inter}" 
+        "vcftools --vcf {input.mut_vcf} --remove-filtered-all --recode --stdout > {output.mut_filter}"
+        "bedtools intersect -a {output.mut_filter}  -b {output.var_filter} > {output.inter}" 
 # Intersect + analyse VCFS
 
 # Annotation 
