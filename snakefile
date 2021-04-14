@@ -6,6 +6,11 @@ DATADIR=config["Data"]
 TARGETS=config["targt_bed"]
 OUTDIR=config["Output"]
 
+##JSON controll if all required input files and check path
+##Implement conda environments 
+
+
+
 # Rule 0: includes all files, which should be present at the end of the run.
 # Output of the current last rule of each chapter of the code 
 rule all:
@@ -15,9 +20,7 @@ rule all:
         OUTDIR+"/normals/sample-name-map.xls",
         OUTDIR+"/pon_db",
         OUTDIR+"/normals/TML_PoN.vcf.gz",
-        expand(OUTDIR+"/TP_calls/{tumor}_SNV_Intersect.vcf", tumor=config["Tumor"])
-   
-        
+        #expand(OUTDIR+"/TP_calls/{tumor}_SNV_Intersect.vcf", tumor=config["Tumor"])  
 
 ####################
 # Data preparation #
@@ -66,6 +69,30 @@ rule samtools_merge:
         OUTDIR+"/merged/{sample}_merge.bam"
     shell:
         "samtools merge {output} {input}"
+
+### GATK DepthofCoverage to analyze the files
+#rule CoverageAnalysis:
+#   input:
+#       bam=OUTDIR+"/merged/{sample}_merge.bam"
+#       target=OUTDIR+"/target_files/Targets_CNVkit_Mutect.bed"
+#   params:
+#       ref=REFDIR
+#   output:
+#       Output1=OUTDIR+"/bamstats/{tumor}_stats",
+#       Output2=OUTDIR+"/bamstats/{tumor}_stats.sample_cumulative_coverage_counts",
+#       Output3=OUTDIR+"/bamstats/{tumor}_stats.sample_cumulative_coverage_proportions",
+#       Output4=OUTDIR+"/bamstats/{tumor}_stats.sample_interval_statistics",
+#       Output5=OUTDIR+"/bamstats/{tumor}_stats.sample_interval_summary",
+#       Output6=OUTDIR+"/bamstats/{tumor}_stats.sample_statistics",
+#       Output7=OUTDIR+"/bamstats/{tumor}_stats.sample_summary"
+#   conda:
+#       envs/environment.yaml
+#   shell:
+#       "gatk DepthOfCoverage \
+#        -I {input.bam} \
+#        -L {input.target} \
+#        -R {params.ref} \
+#        -O {output.Output1}
 
 # Rule 5: Indexing the (merged) bam files
 rule samtools_index:
@@ -140,7 +167,7 @@ rule sample_map:
 
 
 # Rule 6c: Generation of genomics databas
-rule mutect2_GenomicsDB :
+rule mutect2_GenomicsDB:
     input:
         ref=REFDIR,
         bed=OUTDIR+"/target_files/Targets_CNVkit_Mutect.bed",
@@ -201,6 +228,16 @@ rule mutect2_filtering:
         -R {input.ref} \
         -O {output}"
 
+rule vcftools_filter_mutect:
+    input:
+        var_vcf=OUTDIR+"/mutect/{tumor}_mutect2_filtered.vcf"
+    output:
+        var_filter=OUTDIR+"/mutect/{tumor}_mutect2_filtered_PASS.vcf"
+    shell:
+        "vcftools --vcf {input.var_vcf} --remove-filtered-all --recode --stdout > {output.var_filter}"
+
+
+
 # Rule 8: SNV calling with Vardict
 rule vardict:
     input:
@@ -215,22 +252,21 @@ rule vardict:
     output:
        OUTDIR+"/vardict/{tumor}_vardict.vcf"
     shell:
-        "vardict-java -G {input.ref}  -f {params.AF_THR}  -N {params.name}  -b {input.bam} -th {threads} -y\
+        "vardict-java -G {input.ref}  -f {params.AF_THR}  -N {params.name}  -b {input.bam} -th {threads} \
         -c 1 -S 2 -E 3 -g 4 {input.target} | teststrandbias.R | var2vcf_valid.pl -N {params.name} -E -f {params.AF_THR} > {output}"
 
 
-rule vcftools_intersect:
+rule vcftools_filter_vardict:
     input:
-        mut_vcf=OUTDIR+"/mutect/{tumor}_mutect2_filtered.vcf",
         var_vcf=OUTDIR+"/vardict/{tumor}_vardict.vcf"
     output:
-        inter=OUTDIR+"/TP_calls/{tumor}_SNV_Intersect.vcf",
-        var_filter= OUTDIR+"/vardict/{tumor}_vardict_filtered.vcf",
-        mut_filter= OUTDIR+"/mutect/{tumor}_mutect2_filtered_Pass.vcf"
+        var_filter= OUTDIR+"/vardict/{tumor}_vardict_PASS.vcf"
     shell:
         "vcftools --vcf {input.var_vcf} --remove-filtered-all --recode --stdout > {output.var_filter}"
-        "vcftools --vcf {input.mut_vcf} --remove-filtered-all --recode --stdout > {output.mut_filter}"
-        "bedtools intersect -a {output.mut_filter}  -b {output.var_filter} > {output.inter}" 
+
+
+
+
 # Intersect + analyse VCFS
 
 # Annotation 
