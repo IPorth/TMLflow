@@ -1,1 +1,0 @@
-C:/Users/ladmin/Documents/GitHub/TMLflow/.snakemake/
