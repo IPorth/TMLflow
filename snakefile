@@ -15,12 +15,7 @@ OUTDIR=config["Output"]
 # Output of the current last rule of each chapter of the code 
 rule all:
     input:
-        expand(OUTDIR+"/merged/{sample}_merge.bam.bai", sample=config["samples"]),
-        expand(OUTDIR+"/normals/{normal}_mutect2.vcf.gz", normal=config["Normals"]),
-        OUTDIR+"/normals/sample-name-map.xls",
-        OUTDIR+"/pon_db",
-        OUTDIR+"/normals/TML_PoN.vcf.gz",
-        #expand(OUTDIR+"/TP_calls/{tumor}_SNV_Intersect.vcf", tumor=config["Tumor"])  
+
 
 ####################
 # Data preparation #
@@ -30,9 +25,12 @@ rule all:
 # The step is specific for IONTORRENT data
 rule bam_to_fastq:
     input:
-        DATADIR+"/{file}.bam"
+        DATADIR+"/{file}.bam"    
+    conda:
+       "envs/environment.yaml"
     output:
         OUTDIR+"/fastq/{file}.fastq"
+
     shell:
         "picard SamToFastq --INPUT {input} --FASTQ {output}"
 
@@ -42,6 +40,8 @@ rule bwa_map:
     input:
         REFDIR,
         OUTDIR+"/fastq/{file}.fastq"
+    conda:
+       "envs/environment.yaml"
     output:
         OUTDIR+"/mapped/{file}.bam"
     params:
@@ -54,6 +54,8 @@ rule bwa_map:
 rule samtools_sort:
     input:
         OUTDIR+"/mapped/{file}.bam"
+    conda:
+       "envs/environment.yaml"
     output:
         OUTDIR+"/sorted/{file}.sorted.bam"
     shell:
@@ -65,10 +67,25 @@ rule samtools_merge:
     input:
         OUTDIR+"/sorted/{sample}_1.sorted.bam",
         OUTDIR+"/sorted/{sample}_2.sorted.bam"
+    conda:
+       "envs/environment.yaml"
     output:
         OUTDIR+"/merged/{sample}_merge.bam"
     shell:
         "samtools merge {output} {input}"
+
+# Rule 6a0: Generation of target bed files  
+rule bed_file_construction:
+    input:
+        bed=TARGETS
+    conda:
+       "envs/environment.yaml"
+    output:
+        vardict=OUTDIR+"/target_files/Targets_Vardict.bed",
+        cnvkit=OUTDIR+"/target_files/Targets_CNVkit_Mutect.bed",
+        ONCOCNV=OUTDIR+"/target_files/Targets_ONCOCNV.bed"
+    script:
+        "scripts/target_bed_formating.R"
 
 ### GATK DepthofCoverage to analyze the files
 rule CoverageAnalysis:
@@ -76,6 +93,8 @@ rule CoverageAnalysis:
        bam=OUTDIR+"/merged/{sample}_merge.bam",
        target=OUTDIR+"/target_files/Targets_CNVkit_Mutect.bed",
        bai=OUTDIR+"/merged/{sample}_merge.bam.bai"
+    conda:
+       "envs/environment.yaml"
    params:
        ref=REFDIR
    output:
@@ -86,8 +105,6 @@ rule CoverageAnalysis:
        Output5=OUTDIR+"/bamstats/{sample}_merge_stats.sample_interval_summary",
        Output6=OUTDIR+"/bamstats/{sample}_merge_stats.sample_statistics",
        Output7=OUTDIR+"/bamstats/{sample}_merge_stats.sample_summary"
-   conda:
-       "envs/environment.yaml"
    shell:
        "gatk DepthOfCoverage \
        -I {input.bam} \
@@ -99,6 +116,8 @@ rule CoverageAnalysis:
 rule samtools_index:
     input:
         OUTDIR+"/merged/{sample}_merge.bam"
+    conda:
+       "envs/environment.yaml"
     output:
         OUTDIR+"/merged/{sample}_merge.bam.bai"
     shell:
@@ -109,17 +128,6 @@ rule samtools_index:
 ###############
 # SNV Calling #
 ###############
-
-# Rule 6a0: Generation of target bed files  
-rule bed_file_construction:
-    input:
-        bed=TARGETS
-    output:
-        vardict=OUTDIR+"/target_files/Targets_Vardict.bed",
-        cnvkit=OUTDIR+"/target_files/Targets_CNVkit_Mutect.bed",
-        ONCOCNV=OUTDIR+"/target_files/Targets_ONCOCNV.bed"
-    script:
-        "scripts/target_bed_formating.R"
     # Rule 6a1: Generate reference dictionary for use in 6a2
     # Picard tools CreateSequenceDictionary --> readme integriert
 
@@ -203,16 +211,17 @@ rule mutect2_calling:
         bam=OUTDIR+"/merged/{tumor}_merge.bam",
         ref=REFDIR,
         germ="support/somatic-hg38_af-only-gnomad.hg38.vcf.gz",
-        pon=OUTDIR+"/normals/TML_PoN.vcf.gz",
         target=OUTDIR+"/target_files/Targets_CNVkit_Mutect.bed",
         bai=OUTDIR+"/merged/{tumor}_merge.bam.bai"
     threads: 4
+    conda:
+        "envs/filtering.yaml"
     output:
         OUTDIR+"/mutect/{tumor}_mutect2.vcf.gz"
     shell:
         """gatk Mutect2 -R {input.ref} -I {input.bam} \
         --intervals {input.target} --native-pair-hmm-threads {threads} \
-        --germline-resource {input.germ} --panel-of-normals {input.pon} \
+        --germline-resource {input.germ} \
         --max-reads-per-alignment-start 0 -O {output}"""
 
 # Rule 7a: filter Mutect2 calls using gatk FilterMutectCalls
@@ -221,6 +230,8 @@ rule mutect2_filtering:
     input:
         vcf=OUTDIR+"/mutect/{tumor}_mutect2.vcf.gz",
         ref=REFDIR
+    conda:
+        "envs/filtering.yaml"
     output: 
         OUTDIR+"/mutect/{tumor}_mutect2_filtered.vcf"
     shell:
@@ -232,6 +243,8 @@ rule mutect2_filtering:
 rule vcftools_filter_mutect:
     input:
         var_vcf=OUTDIR+"/mutect/{tumor}_mutect2_filtered.vcf"
+    conda:
+        "envs/filtering.yaml"
     output:
         var_filter=OUTDIR+"/mutect/{tumor}_mutect2_filtered_PASS.vcf"
     shell:
@@ -246,6 +259,8 @@ rule vardict:
         target= OUTDIR+"/target_files/Targets_Vardict.bed",
         bam= OUTDIR+"/merged/{tumor}_merge.bam",
         bai=OUTDIR+"/merged/{tumor}_merge.bam.bai"
+    conda:
+        "envs/filtering.yaml"
     params:
         AF_THR= 0.01,
         name="{tumor}"
@@ -260,6 +275,8 @@ rule vardict:
 rule vcftools_filter_vardict:
     input:
         var_vcf=OUTDIR+"/vardict/{tumor}_vardict.vcf"
+    conda:
+        "envs/filtering.yaml"
     output:
         var_filter= OUTDIR+"/vardict/{tumor}_vardict_PASS.vcf"
     shell:
