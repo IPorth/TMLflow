@@ -119,81 +119,81 @@ rule bed_file_construction:
         ONCOCNV=OUTDIR+"/target_files/Targets_ONCOCNV.bed"
     script:
         "scripts/target_bed_formating.R"
-# Rule 6a1: Generate reference dictionary for use in 6a2
-# Picard tools CreateSequenceDictionary --> readme integriert
+    # Rule 6a1: Generate reference dictionary for use in 6a2
+    # Picard tools CreateSequenceDictionary --> readme integriert
 
-# Integrate the filtering in the step, if it works do this also for mutect filtering to reduce numer of rules
-# Rule 6a2: variant calling for normals, prep for PoN
-rule mutect2_normal:
-    input:
-        ref=REFDIR,
-        norm=OUTDIR+"/merged/{normal}_merge.bam",
-        bai=OUTDIR+"/merged/{normal}_merge.bam.bai"
-    threads: 4
-    output:
-        OUTDIR+"/normals/{normal}_mutect2.vcf.gz"
-    shell:
-        "gatk Mutect2 \
-        -R {input.ref} \
-        -I {input.norm} \
-        -max-mnp-distance 0 \
-        --max-reads-per-alignment-start 2500 \
-        --native-pair-hmm-threads {threads} \
-        -O {output}"
+    # Integrate the filtering in the step, if it works do this also for mutect filtering to reduce numer of rules
+    # Rule 6a2: variant calling for normals, prep for PoN
+    #rule mutect2_normal:
+    #    input:
+    #        ref=REFDIR,
+    #        norm=OUTDIR+"/merged/{normal}_merge.bam",
+    #        bai=OUTDIR+"/merged/{normal}_merge.bam.bai"
+    #    threads: 4
+    #    output:
+    #        OUTDIR+"/normals/{normal}_mutect2.vcf.gz"
+    #    shell:
+    #        "gatk Mutect2 \
+    #        -R {input.ref} \
+    #       -I {input.norm} \
+    #        -max-mnp-distance 0 \
+    #        --max-reads-per-alignment-start 2500 \
+    #        --native-pair-hmm-threads {threads} \
+    #        -O {output}"
 
-rule mutect2_normal_filtering:
-    input:
-        vcf=OUTDIR+"/normals/{normal}_mutect2.vcf.gz",
-        ref=REFDIR
-    output:
-        OUTDIR+"/normals/{normal}_mutect2_filtered.vcf.gz"
-    shell:
-        "gatk FilterMutectCalls \
-        -V {input.vcf} \
-        -R {input.ref} \
-        -O {output}"
+    #rule mutect2_normal_filtering:
+    #    input:
+    #        vcf=OUTDIR+"/normals/{normal}_mutect2.vcf.gz",
+    #        ref=REFDIR
+    #    output:
+    #        OUTDIR+"/normals/{normal}_mutect2_filtered.vcf.gz"
+    #    shell:
+    #        "gatk FilterMutectCalls \
+    #        -V {input.vcf} \
+    #        -R {input.ref} \
+    #        -O {output}"
 
-# Rule 6b: Generate sample-name-mapped
-# Wäre cool wenn man diese Regel in Python code umschreiben könnte, damit sie nicht im Flow Diagram auftaucht
-rule sample_map:
-    input:
-        sample=expand(OUTDIR+"/normals/{normal}_mutect2_filtered.vcf.gz", normal=config["Normals"])
-    output:
-        OUTDIR+"/normals/sample-name-map.xls"
-    params:
-        name=expand("{normal}_mutect2_filtered.vcf.gz", normal=config["Normals"]),
-    script:
-        "scripts/sample-name-map.R"
+    # Rule 6b: Generate sample-name-mapped
+    # Wäre cool wenn man diese Regel in Python code umschreiben könnte, damit sie nicht im Flow Diagram auftaucht
+    #rule sample_map:
+    #    input:
+    #        sample=expand(OUTDIR+"/normals/{normal}_mutect2_filtered.vcf.gz", normal=config["Normals"])
+    #    output:
+    #        OUTDIR+"/normals/sample-name-map.xls"
+    #    params:
+    #        name=expand("{normal}_mutect2_filtered.vcf.gz", normal=config["Normals"]),
+    #    script:
+    #        "scripts/sample-name-map.R"
 
 
-# Rule 6c: Generation of genomics databas
-rule mutect2_GenomicsDB:
-    input:
-        ref=REFDIR,
-        bed=OUTDIR+"/target_files/Targets_CNVkit_Mutect.bed",
-        target=OUTDIR+"/target_files/Targets_CNVkit_Mutect.bed",
-        normals=OUTDIR+"/normals/sample-name-map.xls"
-    threads: workflow.cores
-    output:
-        directory(OUTDIR+"/pon_db")
-    shell:
-        "gatk GenomicsDBImport -R {input.ref} -L {input.bed} \
-        --genomicsdb-workspace-path {output} \
-        --validate-sample-name-map TRUE\
-        --sample-name-map {input.normals} \
-        --intervals {input.target} \
-        --merge-input-intervals TRUE "
+    # Rule 6c: Generation of genomics databas
+    #rule mutect2_GenomicsDB:
+    #    input:
+    #        ref=REFDIR,
+    #        bed=OUTDIR+"/target_files/Targets_CNVkit_Mutect.bed",
+    #        target=OUTDIR+"/target_files/Targets_CNVkit_Mutect.bed",
+    #        normals=OUTDIR+"/normals/sample-name-map.xls"
+    #    threads: workflow.cores
+    #    output:
+    #        directory(OUTDIR+"/pon_db")
+    #    shell:
+    #        "gatk GenomicsDBImport -R {input.ref} -L {input.bed} \
+    #        --genomicsdb-workspace-path {output} \
+    #        --validate-sample-name-map TRUE\
+    #        --sample-name-map {input.normals} \
+    #        --intervals {input.target} \
+    #        --merge-input-intervals TRUE "
 
-#Rule 6d: Assemble sommatic panel of normals (PoN)
-rule mutect2_PoN_assembyl:
-    input:
-        ref=REFDIR,
-        pon_db=OUTDIR+"/pon_db"
-    output:
-        OUTDIR+"/normals/TML_PoN.vcf.gz"
-    shell:
-        "gatk CreateSomaticPanelOfNormals -R {input.ref} \
-        -V gendb://{input.pon_db} -O {output}"
+    #Rule 6d: Assemble sommatic panel of normals (PoN)
+    #rule mutect2_PoN_assembyl:
+    #    input:
+    #        ref=REFDIR,
+    #        pon_db=OUTDIR+"/pon_db"
+    #    output:
+    #        OUTDIR+"/normals/TML_PoN.vcf.gz"
+    #    shell:
+    #        "gatk CreateSomaticPanelOfNormals -R {input.ref} \
+    #        -V gendb://{input.pon_db} -O {output}"
 
 
 # Rule 7: SNV calling with Mutect2 for tumor samples
