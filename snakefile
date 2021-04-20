@@ -71,28 +71,29 @@ rule samtools_merge:
         "samtools merge {output} {input}"
 
 ### GATK DepthofCoverage to analyze the files
-#rule CoverageAnalysis:
-#   input:
-#       bam=OUTDIR+"/merged/{sample}_merge.bam"
-#       target=OUTDIR+"/target_files/Targets_CNVkit_Mutect.bed"
-#   params:
-#       ref=REFDIR
-#   output:
-#       Output1=OUTDIR+"/bamstats/{tumor}_stats",
-#       Output2=OUTDIR+"/bamstats/{tumor}_stats.sample_cumulative_coverage_counts",
-#       Output3=OUTDIR+"/bamstats/{tumor}_stats.sample_cumulative_coverage_proportions",
-#       Output4=OUTDIR+"/bamstats/{tumor}_stats.sample_interval_statistics",
-#       Output5=OUTDIR+"/bamstats/{tumor}_stats.sample_interval_summary",
-#       Output6=OUTDIR+"/bamstats/{tumor}_stats.sample_statistics",
-#       Output7=OUTDIR+"/bamstats/{tumor}_stats.sample_summary"
-#   conda:
-#       envs/environment.yaml
-#   shell:
-#       "gatk DepthOfCoverage \
-#        -I {input.bam} \
-#        -L {input.target} \
-#        -R {params.ref} \
-#        -O {output.Output1}
+rule CoverageAnalysis:
+   input:
+       bam=OUTDIR+"/merged/{sample}_merge.bam",
+       target=OUTDIR+"/target_files/Targets_CNVkit_Mutect.bed",
+       bai=OUTDIR+"/merged/{sample}_merge.bam.bai"
+   params:
+       ref=REFDIR
+   output:
+       Output1=OUTDIR+"/bamstats/{sample}_merge_stats",
+       Output2=OUTDIR+"/bamstats/{sample}_merge_stats.sample_cumulative_coverage_counts",
+       Output3=OUTDIR+"/bamstats/{sample}_merge_stats.sample_cumulative_coverage_proportions",
+       Output4=OUTDIR+"/bamstats/{sample}_merge_stats.sample_interval_statistics",
+       Output5=OUTDIR+"/bamstats/{sample}_merge_stats.sample_interval_summary",
+       Output6=OUTDIR+"/bamstats/{sample}_merge_stats.sample_statistics",
+       Output7=OUTDIR+"/bamstats/{sample}_merge_stats.sample_summary"
+   conda:
+       "envs/environment.yaml"
+   shell:
+       "gatk DepthOfCoverage \
+       -I {input.bam} \
+       -L {input.target} \
+       -R {params.ref} \
+       -O {output.Output1}"
 
 # Rule 5: Indexing the (merged) bam files
 rule samtools_index:
