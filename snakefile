@@ -215,9 +215,9 @@ rule mutect2_calling:
         bai=OUTDIR+"/merged/{tumor}_merge.bam.bai"
     threads: 4
     conda:
-        "envs/filtering.yaml"
+        "envs/environment.yaml"
     output:
-        OUTDIR+"/mutect/{tumor}_mutect2.vcf.gz"
+        OUTDIR+"/mutect/MergeEval/{tumor}_mutect2_noPoN_noDS.vcf.gz"
     shell:
         """gatk Mutect2 -R {input.ref} -I {input.bam} \
         --intervals {input.target} --native-pair-hmm-threads {threads} \
@@ -228,61 +228,49 @@ rule mutect2_calling:
 
 rule mutect2_filtering:
     input:
-        vcf=OUTDIR+"/mutect/{tumor}_mutect2.vcf.gz",
+        OUTDIR+"/mutect/MergeEval/{tumor}_mutect2_noPoN_noDS.vcf.gz"       
+    params:
         ref=REFDIR
     conda:
         "envs/filtering.yaml"
-    output: 
-        OUTDIR+"/mutect/{tumor}_mutect2_filtered.vcf"
-    shell:
-        "gatk FilterMutectCalls \
-        -V {input.vcf} \
-        -R {input.ref} \
-        -O {output}"
-
-rule vcftools_filter_mutect:
-    input:
-        var_vcf=OUTDIR+"/mutect/{tumor}_mutect2_filtered.vcf"
-    conda:
-        "envs/filtering.yaml"
     output:
-        var_filter=OUTDIR+"/mutect/{tumor}_mutect2_filtered_PASS.vcf"
+        output1=OUTDIR+"/mutect/MergeEval/{tumor}_mutect2_noPoN_noDS_filtered.vcf.gz",
+        output2=OUTDIR+"/mutect/MergeEval/{tumor}_mutect2_noPoN_noDS_filtered_PASS.vcf.gz"
     shell:
-        "vcftools --vcf {input.var_vcf} --remove-filtered-all --recode --stdout > {output.var_filter}"
-
-
+        "scripts/filter+isec_Mutect_merged.sh {input} {output.output1} {output.output2} {params.ref}"
 
 # Rule 8: SNV calling with Vardict
-rule vardict:
+rule vardict_somatic_mode_merged:
     input:
         ref=REFDIR,
-        target= OUTDIR+"/target_files/Targets_Vardict.bed",
+        target=OUTDIR+"/target_files/Targets_CNVkit_Mutect.bed",
         bam= OUTDIR+"/merged/{tumor}_merge.bam",
         bai=OUTDIR+"/merged/{tumor}_merge.bam.bai"
-    conda:
-        "envs/filtering.yaml"
     params:
-        AF_THR= 0.01,
+        AF_THR= 0.03,
         name="{tumor}"
     threads: 2
+    conda:
+        "envs/environment.yaml"
     output:
-       OUTDIR+"/vardict/{tumor}_vardict.vcf"
+       OUTDIR+"/vardict/{tumor}_vardict_somatic.vcf"
     shell:
         "vardict-java -G {input.ref}  -f {params.AF_THR}  -N {params.name}  -b {input.bam} -th {threads} \
         -c 1 -S 2 -E 3 -g 4 {input.target} | teststrandbias.R | var2vcf_valid.pl -N {params.name} -E -f {params.AF_THR} > {output}"
 
-
-rule vcftools_filter_vardict:
+rule vardict_somatic_mode_merged_filter:
     input:
-        var_vcf=OUTDIR+"/vardict/{tumor}_vardict.vcf"
+        var_vcf=OUTDIR+"/vardict/{tumor}_vardict_somatic.vcf"
     conda:
         "envs/filtering.yaml"
+    params:
+        name="{tumor}_vardict_somatic"
     output:
-        var_filter= OUTDIR+"/vardict/{tumor}_vardict_PASS.vcf"
+        var_filter= OUTDIR+"/vardict/{tumor}_vardict_somatic_PASS.vcf.gz",
+        output2=OUTDIR+"/vardict/{tumor}_vardict_somatic_5.vcf.gz",
+        output3=OUTDIR+"/vardict/{tumor}_vardict_somatic_10.vcf.gz",
     shell:
-        "vcftools --vcf {input.var_vcf} --remove-filtered-all --recode --stdout > {output.var_filter}"
-
-
+        "scripts/filter+isec_merged.sh {input.var_vcf} {output.var_filter} {output.output2} {output.output3} {params.name}"
 
 
 # Intersect + analyse VCFS
