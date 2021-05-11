@@ -112,8 +112,8 @@ rule CoverageAnalysis:
        -R {params.ref} \
        -O {output.Output1}"
 
-# Rule 5: Indexing the (merged) bam files
-rule samtools_index:
+# Rule 5: Indexing the merged bam files
+rule samtools_index_merged:
     input:
         OUTDIR+"/merged/{sample}_merge.bam"
     conda:
@@ -123,7 +123,16 @@ rule samtools_index:
     shell:
         "samtools index {input}"
 
-# Sequencing metrics: FastQC und TarSeqQC 
+# Rule 5b: Indexing the single bam files
+rule samtools_index_single:
+    input:
+        OUTDIR+"/sorted/{file}.sorted.bam"
+    conda:
+        "envs/environment.yaml"
+    output:
+        OUTDIR+"/sorted/{file}.sorted.bam.bai"
+    shell:
+        "samtools index {input}"
 
 ###############
 # SNV Calling #
