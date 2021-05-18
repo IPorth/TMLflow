@@ -15,6 +15,8 @@ OUTDIR=config["Output"]
 # Output of the current last rule of each chapter of the code 
 rule all:
     input:
+        expand(OUTDIR+"/mutect/MergeEval/{tumor}_2_mutect2_filtered_PASS.vcf.gz", tumor=config["Tumor"]),
+        expand(OUTDIR+"/bamstats/{sample}_merge_stats", sample=config["samples"])
 
 
 ####################
@@ -89,15 +91,15 @@ rule bed_file_construction:
 
 ### GATK DepthofCoverage to analyze the files
 rule CoverageAnalysis:
-   input:
+    input:
        bam=OUTDIR+"/merged/{sample}_merge.bam",
        target=OUTDIR+"/target_files/Targets_CNVkit_Mutect.bed",
        bai=OUTDIR+"/merged/{sample}_merge.bam.bai"
     conda:
-       "envs/environment.yaml"
-   params:
+        "envs/environment.yaml"
+    params:
        ref=REFDIR
-   output:
+    output:
        Output1=OUTDIR+"/bamstats/{sample}_merge_stats",
        Output2=OUTDIR+"/bamstats/{sample}_merge_stats.sample_cumulative_coverage_counts",
        Output3=OUTDIR+"/bamstats/{sample}_merge_stats.sample_cumulative_coverage_proportions",
@@ -105,12 +107,14 @@ rule CoverageAnalysis:
        Output5=OUTDIR+"/bamstats/{sample}_merge_stats.sample_interval_summary",
        Output6=OUTDIR+"/bamstats/{sample}_merge_stats.sample_statistics",
        Output7=OUTDIR+"/bamstats/{sample}_merge_stats.sample_summary"
-   shell:
+    shell:
        "gatk DepthOfCoverage \
        -I {input.bam} \
        -L {input.target} \
        -R {params.ref} \
        -O {output.Output1}"
+
+# Rscript to isolate and formate information
 
 # Rule 5: Indexing the merged bam files
 rule samtools_index_merged:
@@ -134,99 +138,103 @@ rule samtools_index_single:
     shell:
         "samtools index {input}"
 
-###############
-# SNV Calling #
-###############
-    # Rule 6a1: Generate reference dictionary for use in 6a2
-    # Picard tools CreateSequenceDictionary --> readme integriert
+###################
+#   SNV Calling   #
+###################
 
-    # Integrate the filtering in the step, if it works do this also for mutect filtering to reduce numer of rules
-    # Rule 6a2: variant calling for normals, prep for PoN
-    #rule mutect2_normal:
-    #    input:
-    #        ref=REFDIR,
-    #        norm=OUTDIR+"/merged/{normal}_merge.bam",
-    #        bai=OUTDIR+"/merged/{normal}_merge.bam.bai"
-    #    threads: 4
-    #    output:
-    #        OUTDIR+"/normals/{normal}_mutect2.vcf.gz"
-    #    shell:
-    #        "gatk Mutect2 \
-    #        -R {input.ref} \
-    #       -I {input.norm} \
-    #        -max-mnp-distance 0 \
-    #        --max-reads-per-alignment-start 2500 \
-    #        --native-pair-hmm-threads {threads} \
-    #        -O {output}"
+# Rule 6a1: Generate reference dictionary for use in 6a2
+# Picard tools CreateSequenceDictionary --> readme integriert
 
-    #rule mutect2_normal_filtering:
-    #    input:
-    #        vcf=OUTDIR+"/normals/{normal}_mutect2.vcf.gz",
-    #        ref=REFDIR
-    #    output:
-    #        OUTDIR+"/normals/{normal}_mutect2_filtered.vcf.gz"
-    #    shell:
-    #        "gatk FilterMutectCalls \
-    #        -V {input.vcf} \
-    #        -R {input.ref} \
-    #        -O {output}"
-
-    # Rule 6b: Generate sample-name-mapped
-    # Wäre cool wenn man diese Regel in Python code umschreiben könnte, damit sie nicht im Flow Diagram auftaucht
-    #rule sample_map:
-    #    input:
-    #        sample=expand(OUTDIR+"/normals/{normal}_mutect2_filtered.vcf.gz", normal=config["Normals"])
-    #    output:
-    #        OUTDIR+"/normals/sample-name-map.xls"
-    #    params:
-    #        name=expand("{normal}_mutect2_filtered.vcf.gz", normal=config["Normals"]),
-    #    script:
-    #        "scripts/sample-name-map.R"
-
-
-    # Rule 6c: Generation of genomics databas
-    #rule mutect2_GenomicsDB:
-    #    input:
-    #        ref=REFDIR,
-    #        bed=OUTDIR+"/target_files/Targets_CNVkit_Mutect.bed",
-    #        target=OUTDIR+"/target_files/Targets_CNVkit_Mutect.bed",
-    #        normals=OUTDIR+"/normals/sample-name-map.xls"
-    #    threads: workflow.cores
-    #    output:
-    #        directory(OUTDIR+"/pon_db")
-    #    shell:
-    #        "gatk GenomicsDBImport -R {input.ref} -L {input.bed} \
-    #        --genomicsdb-workspace-path {output} \
-    #        --validate-sample-name-map TRUE\
-    #        --sample-name-map {input.normals} \
-    #        --intervals {input.target} \
-    #        --merge-input-intervals TRUE "
-
-    #Rule 6d: Assemble sommatic panel of normals (PoN)
-    #rule mutect2_PoN_assembyl:
-    #    input:
-    #        ref=REFDIR,
-    #        pon_db=OUTDIR+"/pon_db"
-    #    output:
-    #        OUTDIR+"/normals/TML_PoN.vcf.gz"
-    #    shell:
-    #        "gatk CreateSomaticPanelOfNormals -R {input.ref} \
-    #        -V gendb://{input.pon_db} -O {output}"
-
-
-# Rule 7: SNV calling with Mutect2 for tumor samples
-rule mutect2_calling:
+#Integrate the filtering in the step, if it works do this also for mutect filtering to reduce numer of rules
+# Rule 6a2: variant calling for normals, prep for PoN
+# No DS
+rule mutect2_normal:
     input:
-        bam=OUTDIR+"/merged/{tumor}_merge.bam",
+        ref=REFDIR,
+        norm=OUTDIR+"/sorted/{normal}_1.sorted.bam",
+        bai=OUTDIR+"/sorted/{normal}_1.sorted.bam.bai"
+    threads: 4
+    output:
+        OUTDIR+"/normals/{normal}_1_mutect2.vcf.gz"
+    shell:
+        "gatk Mutect2 \
+        -R {input.ref} \
+        -I {input.norm} \
+        -max-mnp-distance 0 \
+        --max-reads-per-alignment-start 0 \
+        --native-pair-hmm-threads {threads} \
+        -O {output}"
+
+rule mutect2_normal_filtering:
+    input:
+        vcf=OUTDIR+"/normals/{normal}_1_mutect2.vcf.gz",
+        ref=REFDIR
+    output:
+        OUTDIR+"/normals/{normal}_1_mutect2_filtered.vcf.gz"
+    shell:
+        "gatk FilterMutectCalls \
+        -V {input.vcf} \
+        -R {input.ref} \
+        -O {output}"
+
+# Rule 6b: Generate sample-name-mapped
+# Wäre cool wenn man diese Regel in Python code umschreiben könnte, damit sie nicht im Flow Diagram auftaucht
+rule sample_map:
+    input:
+        sample=expand(OUTDIR+"/normals/{normal}_1_mutect2_filtered.vcf.gz", normal=config["Normals"])
+    output:
+        OUTDIR+"/normals/sample-name-map.xls"
+    params:
+        name=expand("{normal}_1_mutect2_filtered.vcf.gz", normal=config["Normals"]),
+    script:
+        "scripts/sample-name-map.R"
+
+
+# Rule 6c: Generation of genomics databas
+rule mutect2_GenomicsDB:
+    input:
+        ref=REFDIR,
+        bed=OUTDIR+"/target_files/Targets_CNVkit_Mutect.bed",
+        target=OUTDIR+"/target_files/Targets_CNVkit_Mutect.bed",
+        normals=OUTDIR+"/normals/sample-name-map.xls"
+    threads: workflow.cores
+    output:
+        directory(OUTDIR+"/pon_db_single")
+    shell:
+        "gatk GenomicsDBImport -R {input.ref} -L {input.bed} \
+        --genomicsdb-workspace-path {output} \
+        --validate-sample-name-map TRUE\
+        --sample-name-map {input.normals} \
+        --intervals {input.target} \
+        --merge-input-intervals TRUE "
+
+# Rule 6d: Assemble sommatic panel of normals (PoN)
+rule mutect2_PoN_assembyl:
+    input:
+        ref=REFDIR,
+        pon_db=OUTDIR+"/pon_db_single"
+    output:
+        OUTDIR+"/normals/TML_PoN_single.vcf.gz"
+    shell:
+        "gatk CreateSomaticPanelOfNormals -R {input.ref} \
+        -V gendb://{input.pon_db} -O {output}"
+
+# Muss für Dup1 und Dup2 laufen --> Python script mit allen namen? Wie als wildcard verwenden? Einfach die Regel duplizieren? Meta data sheet?
+# Rule 7: SNV calling with Mutect2 for tumor samples
+## Dup1
+rule mutect2_calling_dup1:
+    input:
+        bam=OUTDIR+"/sorted/{tumor}_1.sorted.bam",
         ref=REFDIR,
         germ="support/somatic-hg38_af-only-gnomad.hg38.vcf.gz",
         target=OUTDIR+"/target_files/Targets_CNVkit_Mutect.bed",
-        bai=OUTDIR+"/merged/{tumor}_merge.bam.bai"
+        bai=OUTDIR+"/sorted/{tumor}_1.sorted.bam.bai",
+        pon=OUTDIR+"/normals/TML_PoN_single.vcf.gz"
     threads: 4
     conda:
         "envs/environment.yaml"
     output:
-        OUTDIR+"/mutect/MergeEval/{tumor}_mutect2_noPoN_noDS.vcf.gz"
+        OUTDIR+"/mutect/{tumor}_1_mutect2.vcf.gz"
     shell:
         """gatk Mutect2 -R {input.ref} -I {input.bam} \
         --intervals {input.target} --native-pair-hmm-threads {threads} \
@@ -235,52 +243,53 @@ rule mutect2_calling:
 
 # Rule 7a: filter Mutect2 calls using gatk FilterMutectCalls
 
-rule mutect2_filtering:
+rule mutect2_filtering_dup1:
     input:
-        OUTDIR+"/mutect/MergeEval/{tumor}_mutect2_noPoN_noDS.vcf.gz"       
+        OUTDIR+"/mutect/{tumor}_1_mutect2.vcf.gz"       
     params:
         ref=REFDIR
     conda:
         "envs/filtering.yaml"
     output:
-        output1=OUTDIR+"/mutect/MergeEval/{tumor}_mutect2_noPoN_noDS_filtered.vcf.gz",
-        output2=OUTDIR+"/mutect/MergeEval/{tumor}_mutect2_noPoN_noDS_filtered_PASS.vcf.gz"
+        output1=OUTDIR+"/mutect/MergeEval/{tumor}_1_mutect2_filtered.vcf.gz",
+        output2=OUTDIR+"/mutect/MergeEval/{tumor}_1_mutect2_filtered_PASS.vcf.gz"
     shell:
         "scripts/filter+isec_Mutect_merged.sh {input} {output.output1} {output.output2} {params.ref}"
 
-# Rule 8: SNV calling with Vardict
-rule vardict_somatic_mode_merged:
+## Dup2
+rule mutect2_calling_dup2:
     input:
+        bam=OUTDIR+"/sorted/{tumor}_2.sorted.bam",
         ref=REFDIR,
+        germ="support/somatic-hg38_af-only-gnomad.hg38.vcf.gz",
         target=OUTDIR+"/target_files/Targets_CNVkit_Mutect.bed",
-        bam= OUTDIR+"/merged/{tumor}_merge.bam",
-        bai=OUTDIR+"/merged/{tumor}_merge.bam.bai"
-    params:
-        AF_THR= 0.03,
-        name="{tumor}"
-    threads: 2
+        bai=OUTDIR+"/sorted/{tumor}_2.sorted.bam.bai",
+        pon=OUTDIR+"/normals/TML_PoN_single.vcf.gz"
+    threads: 4
     conda:
         "envs/environment.yaml"
     output:
-       OUTDIR+"/vardict/{tumor}_vardict_somatic.vcf"
+        OUTDIR+"/mutect/{tumor}_2_mutect2.vcf.gz"
     shell:
-        "vardict-java -G {input.ref}  -f {params.AF_THR}  -N {params.name}  -b {input.bam} -th {threads} \
-        -c 1 -S 2 -E 3 -g 4 {input.target} | teststrandbias.R | var2vcf_valid.pl -N {params.name} -E -f {params.AF_THR} > {output}"
+        """gatk Mutect2 -R {input.ref} -I {input.bam} \
+        --intervals {input.target} --native-pair-hmm-threads {threads} \
+        --germline-resource {input.germ} \
+        --max-reads-per-alignment-start 0 -O {output}"""
 
-rule vardict_somatic_mode_merged_filter:
+# Rule 7a: filter Mutect2 calls using gatk FilterMutectCalls
+
+rule mutect2_filtering_dup2:
     input:
-        var_vcf=OUTDIR+"/vardict/{tumor}_vardict_somatic.vcf"
+        OUTDIR+"/mutect/{tumor}_2_mutect2.vcf.gz"       
+    params:
+        ref=REFDIR
     conda:
         "envs/filtering.yaml"
-    params:
-        name="{tumor}_vardict_somatic"
     output:
-        var_filter= OUTDIR+"/vardict/{tumor}_vardict_somatic_PASS.vcf.gz",
-        output2=OUTDIR+"/vardict/{tumor}_vardict_somatic_5.vcf.gz",
-        output3=OUTDIR+"/vardict/{tumor}_vardict_somatic_10.vcf.gz",
+        output1=OUTDIR+"/mutect/MergeEval/{tumor}_2_mutect2_filtered.vcf.gz",
+        output2=OUTDIR+"/mutect/MergeEval/{tumor}_2_mutect2_filtered_PASS.vcf.gz"
     shell:
-        "scripts/filter+isec_merged.sh {input.var_vcf} {output.var_filter} {output.output2} {output.output3} {params.name}"
-
+        "scripts/filter+isec_Mutect_merged.sh {input} {output.output1} {output.output2} {params.ref}"
 
 # Intersect + analyse VCFS
 
@@ -292,6 +301,7 @@ rule vardict_somatic_mode_merged_filter:
 # CNV Calling #
 ###############
 
+# DONE separate workflow
 
 
 
