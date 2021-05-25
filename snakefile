@@ -1,3 +1,6 @@
+from os.path import join
+import pandas as pd
+
 # Reading the config file
 configfile: "config.yaml"
 # Setting path as global variable
@@ -9,14 +12,35 @@ OUTDIR=config["Output"]
 ##JSON controll if all required input files and check path
 ##Implement conda environments 
 
+#Read sample.tsv
+#set_index: indexed the dataframe with the column sample without droping the column out of the dataframe
+samples = pd.read_table(config["Sample"], sep="\t", dtype=object).set_index(["sample", "condition","rep"], drop=False)
 
+tumor_only=samples[samples['condition'].str.contains('umor')]
+control_only=samples[samples['condition'].str.contains('ormal')]
+
+# Input function!
+def get_files(wildcards):
+    return join(DATADIR, samples.loc[(wildcards.sample, wildcards.condition, wildcards.rep), "bam"])
+
+#Eventuell den df nur in tumor und controll aufteilen
+
+
+""""
+Original
+def get_samples(wildcards):
+    return join(DATADIR, wildcards.sample, units.loc[(wildcards.sample, wildcards.type, wildcards.rep), 
+                ["fq1", "fq2"]].dropna()
+"""
 
 # Rule 0: includes all files, which should be present at the end of the run.
 # Output of the current last rule of each chapter of the code 
 rule all:
     input:
-        expand(OUTDIR+"/mutect/MergeEval/{tumor}_2_mutect2_filtered_PASS.vcf.gz", tumor=config["Tumor"]),
-        expand(OUTDIR+"/bamstats/{sample}_merge_stats", sample=config["samples"])
+#        expand(OUTDIR+"/fastq/{units.sample}_{units.condition}_{units.rep}.fastq", units=samples.itertuples())
+        expand(OUTDIR+"/merged/{units.sample}_{units.condition}_merge.bam", units=samples.itertuples())
+#        expand(OUTDIR+"/mutect/MergeEval/{tumor}_2_mutect2_filtered_PASS.vcf.gz", tumor=config["Tumor"]),
+#        expand(OUTDIR+"/bamstats/{sample}_merge_stats", sample=config["samples"])
 
 
 ####################
@@ -25,14 +49,14 @@ rule all:
 
 # Rule 1: convertes input bam file to fastq file using picard tools SamToFastq.
 # The step is specific for IONTORRENT data
+
 rule bam_to_fastq:
     input:
-        DATADIR+"/{file}.bam"    
+        get_files
     conda:
        "envs/environment.yaml"
     output:
-        OUTDIR+"/fastq/{file}.fastq"
-
+        OUTDIR+"/fastq/{sample}_{condition}_{rep}.fastq"
     shell:
         "picard SamToFastq --INPUT {input} --FASTQ {output}"
 
@@ -41,13 +65,13 @@ rule bam_to_fastq:
 rule bwa_map:
     input:
         REFDIR,
-        OUTDIR+"/fastq/{file}.fastq"
+        OUTDIR+"/fastq/{sample}_{condition}_{rep}.fastq"
     conda:
        "envs/environment.yaml"
     output:
-        OUTDIR+"/mapped/{file}.bam"
+        OUTDIR+"/mapped/{sample}_{condition}_{rep}_realign.bam"
     params:
-        rg="@RG\\tID:{file}\\tSM:{file}"
+        rg="@RG\\tID:{sample}_{condition}_{rep}\\tSM:{sample}_{condition}_{rep}"
     shell:
         "bwa mem -R '{params.rg}' {input} | samtools view -Sb - > {output}"
 
@@ -55,11 +79,11 @@ rule bwa_map:
 # Preparation for index and merge
 rule samtools_sort:
     input:
-        OUTDIR+"/mapped/{file}.bam"
+        OUTDIR+"/mapped/{sample}_{condition}_{rep}_realign.bam"
     conda:
        "envs/environment.yaml"
     output:
-        OUTDIR+"/sorted/{file}.sorted.bam"
+        OUTDIR+"/sorted/{sample}_{condition}_{rep}.sorted.bam"
     shell:
         "samtools sort -O bam {input} -o {output}"
 
@@ -67,12 +91,13 @@ rule samtools_sort:
 # This step is not required if there are no replicates
 rule samtools_merge:
     input:
-        OUTDIR+"/sorted/{sample}_1.sorted.bam",
-        OUTDIR+"/sorted/{sample}_2.sorted.bam"
+        expand(OUTDIR+"/sorted/{units.sample}_{units.condition}_{{rep}}.sorted.bam", units=samples.itertuples())
+        #OUTDIR+"/sorted/{sample}_1.sorted.bam",
+        #OUTDIR+"/sorted/{sample}_2.sorted.bam"
     conda:
        "envs/environment.yaml"
     output:
-        OUTDIR+"/merged/{sample}_merge.bam"
+        OUTDIR+"/merged/{sample}_{condition}_merge.bam"
     shell:
         "samtools merge {output} {input}"
 
@@ -183,7 +208,7 @@ rule sample_map:
     input:
         sample=expand(OUTDIR+"/normals/{normal}_1_mutect2_filtered.vcf.gz", normal=config["Normals"])
     output:
-        OUTDIR+"/normals/sample-name-map.xls"
+        temp(OUTDIR+"/normals/sample-name-map.xls")
     params:
         name=expand("{normal}_1_mutect2_filtered.vcf.gz", normal=config["Normals"]),
     script:

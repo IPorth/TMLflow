@@ -1,3 +1,16 @@
+# Path to data, reference and output directory (required)
+# Do not write the paths as a list!
+Reference: "/mnt/e/TMLflow-merged/data/reference/hg38.fa"
+Data: "/mnt/e/TMLflow-merged/data/single"
+Output: "/mnt/e/TMLflow-merged/data/output"
+Sample: "/mnt/e/TMLflow-merged/data/single/samples.tsv"
+# Path to target bed file
+# Make sure that your target region coordinates are based on your reference 
+# If not, use liftOver to convert the regions to the right reference
+# https://genome.ucsc.edu/cgi-bin/hgLiftOver
+# Bed file requires the columns: chr, start, end, amplicon name, gene name in this order.
+targt_bed: "/mnt/e/Target_regions/TML/Oncomine_TML.20180605_hg38.designed.bed"
+
 samples:
   - "Pat11_11_54964_I_TB"
   - "Pat11_11_54964_IV_N"
@@ -23,21 +36,6 @@ Normals:
 Tumor:
   - "Pat11_11_54964_I_TB"
   - "Pat1_19_8396_TB"
-
-# Path to data, reference and output directory (required)
-# Do not write the paths as a list!
-Reference: "/mnt/e/TMLflow-merged/data/reference/hg38.fa"
-Data: "/mnt/e/TMLflow-merged/data/single"
-Output: "/mnt/e/TMLflow-merged/data/output"
-
-# Path to target bed file
-# Make sure that your target region coordinates are based on your reference 
-# If not, use liftOver to convert the regions to the right reference
-# https://genome.ucsc.edu/cgi-bin/hgLiftOver
-# Bed file requires the columns: chr, start, end, amplicon name, gene name in this order.
-targt_bed: "/mnt/e/Target_regions/TML/Oncomine_TML.20180605_hg38.designed.bed"
-
-
 
 
 
