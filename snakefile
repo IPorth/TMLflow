@@ -9,7 +9,7 @@ DATADIR=config["Data"]
 TARGETS=config["targt_bed"]
 OUTDIR=config["Output"]
 
-##JSON controll if all required input files and check path
+##JSON control if all required input files and check path
 ##Implement conda environments 
 
 #Read sample.tsv
@@ -17,13 +17,19 @@ OUTDIR=config["Output"]
 samples = pd.read_table(config["Sample"], sep="\t", dtype=object).set_index(["sample", "condition","rep"], drop=False)
 
 tumor_only=samples[samples['condition'].str.contains('umor')]
+tumor_only.set_index(["sample","condition", "rep"], drop=False)
 control_only=samples[samples['condition'].str.contains('ormal')]
-
+control_only.set_index(["sample","condition", "rep"], drop=False)
 # Input function!
 def get_files(wildcards):
     return join(DATADIR, samples.loc[(wildcards.sample, wildcards.condition, wildcards.rep), "bam"])
 
-#Eventuell den df nur in tumor und controll aufteilen
+def get_normals(wildcards):
+    return control_only.loc(wildcards.sample, wildcards.condition, wildcards.rep)
+
+def get_tumor(wildcards):
+    return tumor_only.loc(wildcards.sample, wildcards.condition, wildcards.rep)
+#Eventuell den df nur in tumor und control aufteilen
 
 
 """"
@@ -38,7 +44,10 @@ def get_samples(wildcards):
 rule all:
     input:
 #        expand(OUTDIR+"/fastq/{units.sample}_{units.condition}_{units.rep}.fastq", units=samples.itertuples())
-        expand(OUTDIR+"/merged/{units.sample}_{units.condition}_merge.bam", units=samples.itertuples())
+        expand(OUTDIR+"/merged/{units.sample}_{units.condition}_merge.bam", units=samples.itertuples()),
+        expand(OUTDIR+"/bamstats/{units.sample}_{units.condition}_merge_stats", units=samples.itertuples()),
+        expand(OUTDIR+"/normals/{units.sample}_{units.condition}_{units.rep}_mutect2.vcf.gz", units=control_only.itertuples(), allow_missing=True),
+        expand(OUTDIR+"/mutect/{units.sample}_{units.condition}_{units.rep}_mutect2.vcf.gz", units=tumor_only.itertuples())
 #        expand(OUTDIR+"/mutect/MergeEval/{tumor}_2_mutect2_filtered_PASS.vcf.gz", tumor=config["Tumor"]),
 #        expand(OUTDIR+"/bamstats/{sample}_merge_stats", sample=config["samples"])
 
@@ -88,12 +97,14 @@ rule samtools_sort:
         "samtools sort -O bam {input} -o {output}"
 
 # Rule 4: All sorted bam files belonging to the same sample are merged into a single file
-# This step is not required if there are no replicates
+# This step is only required for CNV calling. Check if CNV calling works on singles too!
+# Replicates are hard coded currently, search for a solution
 rule samtools_merge:
     input:
-        expand(OUTDIR+"/sorted/{units.sample}_{units.condition}_{{rep}}.sorted.bam", units=samples.itertuples())
-        #OUTDIR+"/sorted/{sample}_1.sorted.bam",
-        #OUTDIR+"/sorted/{sample}_2.sorted.bam"
+        #expand(OUTDIR+"/sorted/{units.sample}_{units.condition}_{{rep}}.sorted.bam", units=samples.itertuples(), allow_missing=True)
+        OUTDIR+"/sorted/{sample}_{condition}_1.sorted.bam",
+        OUTDIR+"/sorted/{sample}_{condition}_2.sorted.bam"
+       
     conda:
        "envs/environment.yaml"
     output:
@@ -117,21 +128,21 @@ rule bed_file_construction:
 ### GATK DepthofCoverage to analyze the files
 rule CoverageAnalysis:
     input:
-       bam=OUTDIR+"/merged/{sample}_merge.bam",
+       bam=OUTDIR+"/merged/{sample}_{condition}_merge.bam",
        target=OUTDIR+"/target_files/Targets_CNVkit_Mutect.bed",
-       bai=OUTDIR+"/merged/{sample}_merge.bam.bai"
+       bai=OUTDIR+"/merged/{sample}_{condition}_merge.bam.bai"
     conda:
         "envs/environment.yaml"
     params:
        ref=REFDIR
     output:
-       Output1=OUTDIR+"/bamstats/{sample}_merge_stats",
-       Output2=OUTDIR+"/bamstats/{sample}_merge_stats.sample_cumulative_coverage_counts",
-       Output3=OUTDIR+"/bamstats/{sample}_merge_stats.sample_cumulative_coverage_proportions",
-       Output4=OUTDIR+"/bamstats/{sample}_merge_stats.sample_interval_statistics",
-       Output5=OUTDIR+"/bamstats/{sample}_merge_stats.sample_interval_summary",
-       Output6=OUTDIR+"/bamstats/{sample}_merge_stats.sample_statistics",
-       Output7=OUTDIR+"/bamstats/{sample}_merge_stats.sample_summary"
+       Output1=OUTDIR+"/bamstats/{sample}_{condition}_merge_stats",
+       Output2=OUTDIR+"/bamstats/{sample}_{condition}_merge_stats.sample_cumulative_coverage_counts",
+       Output3=OUTDIR+"/bamstats/{sample}_{condition}_merge_stats.sample_cumulative_coverage_proportions",
+       Output4=OUTDIR+"/bamstats/{sample}_{condition}_merge_stats.sample_interval_statistics",
+       Output5=OUTDIR+"/bamstats/{sample}_{condition}_merge_stats.sample_interval_summary",
+       Output6=OUTDIR+"/bamstats/{sample}_{condition}_merge_stats.sample_statistics",
+       Output7=OUTDIR+"/bamstats/{sample}_{condition}_merge_stats.sample_summary"
     shell:
        "gatk DepthOfCoverage \
        -I {input.bam} \
@@ -144,22 +155,22 @@ rule CoverageAnalysis:
 # Rule 5: Indexing the merged bam files
 rule samtools_index_merged:
     input:
-        OUTDIR+"/merged/{sample}_merge.bam"
+        OUTDIR+"/merged/{sample}_{condition}_merge.bam"
     conda:
        "envs/environment.yaml"
     output:
-        OUTDIR+"/merged/{sample}_merge.bam.bai"
+        OUTDIR+"/merged/{sample}_{condition}_merge.bam.bai"
     shell:
         "samtools index {input}"
 
 # Rule 5b: Indexing the single bam files
 rule samtools_index_single:
     input:
-        OUTDIR+"/sorted/{file}.sorted.bam"
+        OUTDIR+"/sorted/{sample}_{condition}_{rep}.sorted.bam"
     conda:
         "envs/environment.yaml"
     output:
-        OUTDIR+"/sorted/{file}.sorted.bam.bai"
+        OUTDIR+"/sorted/{sample}_{condition}_{rep}.sorted.bam.bai"
     shell:
         "samtools index {input}"
 
@@ -176,11 +187,14 @@ rule samtools_index_single:
 rule mutect2_normal:
     input:
         ref=REFDIR,
-        norm=OUTDIR+"/sorted/{normal}_1.sorted.bam",
-        bai=OUTDIR+"/sorted/{normal}_1.sorted.bam.bai"
+        norm=OUTDIR+"/sorted/{sample}_{condition}_{rep}.sorted.bam",
+        bai=OUTDIR+"/sorted/{sample}_{condition}_{rep}.sorted.bam.bai"
     threads: 4
+    wildcard_constraints:
+        condition= '|'.join([re.escape(x) for x in samples.condition if x == 'Normal']),
+        rep= '|'.join([re.escape(x) for x in samples.rep if x == 1])
     output:
-        OUTDIR+"/normals/{normal}_1_mutect2.vcf.gz"
+        OUTDIR+"/normals/{sample}_{condition}_{rep}_mutect2.vcf.gz"
     shell:
         "gatk Mutect2 \
         -R {input.ref} \
@@ -192,10 +206,13 @@ rule mutect2_normal:
 
 rule mutect2_normal_filtering:
     input:
-        vcf=OUTDIR+"/normals/{normal}_1_mutect2.vcf.gz",
+        vcf=OUTDIR+"/normals/{sample}_{condition}_{rep}_mutect2.vcf.gz",
         ref=REFDIR
+    wildcard_constraints:
+        condition= '|'.join([re.escape(x) for x in samples.condition if x == 'Normal']),
+        rep= '|'.join([re.escape(x) for x in samples.rep if x == 1])
     output:
-        OUTDIR+"/normals/{normal}_1_mutect2_filtered.vcf.gz"
+        OUTDIR+"/normals/{sample}_{condition}_{rep}_mutect2_filtered.vcf.gz"
     shell:
         "gatk FilterMutectCalls \
         -V {input.vcf} \
@@ -206,11 +223,14 @@ rule mutect2_normal_filtering:
 # Wäre cool wenn man diese Regel in Python code umschreiben könnte, damit sie nicht im Flow Diagram auftaucht
 rule sample_map:
     input:
-        sample=expand(OUTDIR+"/normals/{normal}_1_mutect2_filtered.vcf.gz", normal=config["Normals"])
+        sample=expand(OUTDIR+"/normals/{units.sample}_{units.condition}_{units.rep}_mutect2_filtered.vcf.gz",units=control_only.itertuples(), allow_missing=True )
+    wildcard_constraints:
+        condition= '|'.join([re.escape(x) for x in samples.condition if x == 'Normal']),
+        rep= '|'.join([re.escape(x) for x in samples.rep if x == 1])
+    params:
+        name=expand("{units.sample}_{units.condition}_{units.rep}_mutect2_filtered.vcf.gz", units=control_only.itertuples(), allow_missing=True)
     output:
         temp(OUTDIR+"/normals/sample-name-map.xls")
-    params:
-        name=expand("{normal}_1_mutect2_filtered.vcf.gz", normal=config["Normals"]),
     script:
         "scripts/sample-name-map.R"
 
@@ -247,19 +267,21 @@ rule mutect2_PoN_assembyl:
 # Muss für Dup1 und Dup2 laufen --> Python script mit allen namen? Wie als wildcard verwenden? Einfach die Regel duplizieren? Meta data sheet?
 # Rule 7: SNV calling with Mutect2 for tumor samples
 ## Dup1
-rule mutect2_calling_dup1:
+rule mutect2_calling:
     input:
-        bam=OUTDIR+"/sorted/{tumor}_1.sorted.bam",
+        bam=OUTDIR+"/sorted/{sample}_{condition}_{rep}.sorted.bam",
+        bai=OUTDIR+"/sorted/{sample}_{condition}_{rep}.sorted.bam.bai",
         ref=REFDIR,
         germ="support/somatic-hg38_af-only-gnomad.hg38.vcf.gz",
         target=OUTDIR+"/target_files/Targets_CNVkit_Mutect.bed",
-        bai=OUTDIR+"/sorted/{tumor}_1.sorted.bam.bai",
         pon=OUTDIR+"/normals/TML_PoN_single.vcf.gz"
     threads: 4
+    wildcard_constraints:
+        condition= '|'.join([re.escape(x) for x in samples.condition if x == 'Tumor'])
     conda:
         "envs/environment.yaml"
     output:
-        OUTDIR+"/mutect/{tumor}_1_mutect2.vcf.gz"
+        OUTDIR+"/mutect/{sample}_{condition}_{rep}_mutect2.vcf.gz"
     shell:
         """gatk Mutect2 -R {input.ref} -I {input.bam} \
         --intervals {input.target} --native-pair-hmm-threads {threads} \
@@ -273,6 +295,8 @@ rule mutect2_filtering_dup1:
         OUTDIR+"/mutect/{tumor}_1_mutect2.vcf.gz"       
     params:
         ref=REFDIR
+   
+
     conda:
         "envs/filtering.yaml"
     output:
@@ -281,40 +305,7 @@ rule mutect2_filtering_dup1:
     shell:
         "scripts/filter+isec_Mutect_merged.sh {input} {output.output1} {output.output2} {params.ref}"
 
-## Dup2
-rule mutect2_calling_dup2:
-    input:
-        bam=OUTDIR+"/sorted/{tumor}_2.sorted.bam",
-        ref=REFDIR,
-        germ="support/somatic-hg38_af-only-gnomad.hg38.vcf.gz",
-        target=OUTDIR+"/target_files/Targets_CNVkit_Mutect.bed",
-        bai=OUTDIR+"/sorted/{tumor}_2.sorted.bam.bai",
-        pon=OUTDIR+"/normals/TML_PoN_single.vcf.gz"
-    threads: 4
-    conda:
-        "envs/environment.yaml"
-    output:
-        OUTDIR+"/mutect/{tumor}_2_mutect2.vcf.gz"
-    shell:
-        """gatk Mutect2 -R {input.ref} -I {input.bam} \
-        --intervals {input.target} --native-pair-hmm-threads {threads} \
-        --germline-resource {input.germ} \
-        --max-reads-per-alignment-start 0 -O {output}"""
 
-# Rule 7a: filter Mutect2 calls using gatk FilterMutectCalls
-
-rule mutect2_filtering_dup2:
-    input:
-        OUTDIR+"/mutect/{tumor}_2_mutect2.vcf.gz"       
-    params:
-        ref=REFDIR
-    conda:
-        "envs/filtering.yaml"
-    output:
-        output1=OUTDIR+"/mutect/MergeEval/{tumor}_2_mutect2_filtered.vcf.gz",
-        output2=OUTDIR+"/mutect/MergeEval/{tumor}_2_mutect2_filtered_PASS.vcf.gz"
-    shell:
-        "scripts/filter+isec_Mutect_merged.sh {input} {output.output1} {output.output2} {params.ref}"
 
 # Intersect + analyse VCFS
 

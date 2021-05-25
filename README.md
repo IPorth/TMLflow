@@ -53,7 +53,7 @@ Example:
   
 bam: the exact name of the input bam files  
 samples: sample name  
-condition: either tumor or normal; not case sensitive  
+condition: either Tumor or Normal, the input is case sensitive  
 rep: number of replicate  
 
 Insert required information in the config files.  
@@ -68,5 +68,13 @@ Insert required information in the config files.
 
 
 The workflow uses different environments. It is recommended to create the environments before starting the workflow.  
-`snakemake --use-conda --conda-create-envs-only --cores {NumberOfCores}`
+`snakemake --use-conda --conda-create-envs-only --cores {NumberOfCores}`  
+
+  
+  
+
+Somatic Panel of Normals (PoN)  
+Please note that once the PoN is created it will not be automaticatlly updated when you add normal samples to the samples.tsv. To include new samples into the PoN, you have to delete the PoN and  the genomicsDB directory and restart the workflow.  
+Path to PoN: `output_directory/normals/PoN_single.vcf.gz`  
+Path to genomicsDB: `output_directory/pon_db_single`  
 
