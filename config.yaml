@@ -10,32 +10,3 @@ Sample: "/mnt/e/TMLflow-merged/data/single/samples.tsv"
 # https://genome.ucsc.edu/cgi-bin/hgLiftOver
 # Bed file requires the columns: chr, start, end, amplicon name, gene name in this order.
 targt_bed: "/mnt/e/Target_regions/TML/Oncomine_TML.20180605_hg38.designed.bed"
-
-samples:
-  - "Pat11_11_54964_I_TB"
-  - "Pat11_11_54964_IV_N"
-  - "Pat1_19_8396_TB"
-  - "Pat1_19_14281_2-2_N"
-
-
-files:
-  - "Pat11_11_54964_I_TB_1"
-  - "Pat11_11_54964_I_TB_2"
-  - "Pat11_11_54964_IV_N_1"
-  - "Pat11_11_54964_IV_N_2"
-  - "Pat1_19_8396_TB_1"
-  - "Pat1_19_8396_TB_2"
-  - "Pat1_19_14281_2-2_N_1"
-  - "Pat1_19_14281_2-2_N_2"
-
-
-Normals:
-  - "Pat11_11_54964_IV_N"
-  - "Pat1_19_14281_2-2_N"
-
-Tumor:
-  - "Pat11_11_54964_I_TB"
-  - "Pat1_19_8396_TB"
-
-
-

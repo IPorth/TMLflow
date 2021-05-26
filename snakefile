@@ -46,8 +46,8 @@ rule all:
 #        expand(OUTDIR+"/fastq/{units.sample}_{units.condition}_{units.rep}.fastq", units=samples.itertuples())
         expand(OUTDIR+"/merged/{units.sample}_{units.condition}_merge.bam", units=samples.itertuples()),
         expand(OUTDIR+"/bamstats/{units.sample}_{units.condition}_merge_stats", units=samples.itertuples()),
-        expand(OUTDIR+"/normals/{units.sample}_{units.condition}_{units.rep}_mutect2.vcf.gz", units=control_only.itertuples(), allow_missing=True),
-        expand(OUTDIR+"/mutect/{units.sample}_{units.condition}_{units.rep}_mutect2.vcf.gz", units=tumor_only.itertuples())
+#        expand(OUTDIR+"/normals/{normal.sample}_{normal.condition}_{normal.rep}_mutect2.vcf.gz", normal=control_only.itertuples(), allow_missing=True),
+        expand(OUTDIR+"/mutect/{tumor.sample}_{tumor.condition}_{tumor.rep}_mutect2.vcf.gz", tumor=tumor_only.itertuples())
 #        expand(OUTDIR+"/mutect/MergeEval/{tumor}_2_mutect2_filtered_PASS.vcf.gz", tumor=config["Tumor"]),
 #        expand(OUTDIR+"/bamstats/{sample}_merge_stats", sample=config["samples"])
 
@@ -289,19 +289,19 @@ rule mutect2_calling:
         --max-reads-per-alignment-start 0 -O {output}"""
 
 # Rule 7a: filter Mutect2 calls using gatk FilterMutectCalls
-
-rule mutect2_filtering_dup1:
+# Filtering and intersection! Change script! 
+rule mutect2_filtering:
     input:
-        OUTDIR+"/mutect/{tumor}_1_mutect2.vcf.gz"       
+        OUTDIR+"/mutect/{sample}_{condition}_{rep}_mutect2.vcf.gz"       
     params:
         ref=REFDIR
-   
-
+    wildcard_constraints:
+        condition= '|'.join([re.escape(x) for x in samples.condition if x == 'Tumor'])
     conda:
         "envs/filtering.yaml"
     output:
-        output1=OUTDIR+"/mutect/MergeEval/{tumor}_1_mutect2_filtered.vcf.gz",
-        output2=OUTDIR+"/mutect/MergeEval/{tumor}_1_mutect2_filtered_PASS.vcf.gz"
+        output1=OUTDIR+"/mutect/MergeEval/{sample}_{condition}_{rep}_mutect2_filtered.vcf.gz",
+        output2=OUTDIR+"/mutect/MergeEval/{sample}_{condition}_{rep}_mutect2_filtered_PASS.vcf.gz"
     shell:
         "scripts/filter+isec_Mutect_merged.sh {input} {output.output1} {output.output2} {params.ref}"
 

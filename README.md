@@ -7,9 +7,9 @@ Analysis: SNV, CNV, coverage, annotation and heterogeneity index.
 - bam files (IonTorrent, tumor and normal samples, unmatched, 2 replicates)
 - target bed file (tab-separated; including chr, start, end, amplicon name and gene name in this order)
 - reference genome matching the target bed regions
-- adjusted config file and metadata.tsv
+- adjusted config file and samples.tsv
 
-## Required software  
+## Software and hardware requirements  
 Conda or Miniconda
 OS: Linux, Windows 10 with WSL2, not tested on Mac
 
@@ -41,8 +41,9 @@ Execute the following code in the activated TMLflow environment:
 For Mutect2, a dictionary of your reference has to be generated. This step has to be performed before you start the workflow the first time or when you change your reference.
 In the activated environment you can use picard tools to do so:  
 `picard CreateSequenceDictionary R=path/reference.fasta O=path/reference.dict`  
-  
-Fill in your data information into the metadata tsv. Tab separation is required.  
+
+#### Config file and samples.tsv  
+Fill in your data information into the samples.tsv. 
 Example:  
 | bam | sample | condition | rep |
 |-----|--------|-----------|-----|
@@ -56,8 +57,8 @@ samples: sample name
 condition: either Tumor or Normal, the input is case sensitive  
 rep: number of replicate  
 
-Insert required information in the config files.  
-- Path to metadata tsv
+Insert required information in the config file:  
+- Path to samples.tsv
 - Path to reference, data and output directory
 - Path to target bed file
 
@@ -74,7 +75,7 @@ The workflow uses different environments. It is recommended to create the enviro
   
 
 Somatic Panel of Normals (PoN)  
-Please note that once the PoN is created it will not be automaticatlly updated when you add normal samples to the samples.tsv. To include new samples into the PoN, you have to delete the PoN and  the genomicsDB directory and restart the workflow.  
+Please note that once the PoN is created it will not be automaticatlly updated when you add normal samples to the samples.tsv. To include new samples into the PoN, you have to delete the PoN and  the genomicsDB directory manually and restart the workflow.  
 Path to PoN: `output_directory/normals/PoN_single.vcf.gz`  
 Path to genomicsDB: `output_directory/pon_db_single`  
 
