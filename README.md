@@ -1,6 +1,8 @@
 # TMLflow
-Pipeline for the analysis of Oncomine Tumor Mutation Load Assay an Ion AmliSeq Panel.  
-Uses bam files from Ion Torrent S5 sequencer with Tumor Mutation Load Panel.  
+Pipeline for the analysis of the Oncomine Tumor Mutation Load Assay an Ion AmliSeq Panel.  
+It uses bam files from Ion Torrent S5 sequencer with Tumor Mutation Load Panel from tumor ad healthy control FFPE samples.  
+The pipeline is designed to run with two replicates, analyses them separately and takes the SNV
+found in both replicates with 3% and coverage >100 as output. It can handle more replicates but for the intersection part it will only take replicate 1 and 2. One replicate is not supported yet. 
 Analysis: SNV, CNV, coverage, annotation and heterogeneity index.
 
 ## Required files
@@ -75,7 +77,4 @@ The workflow uses different environments. It is recommended to create the enviro
   
 
 Somatic Panel of Normals (PoN)  
-Please note that once the PoN is created it will not be automaticatlly updated when you add normal samples to the samples.tsv. To include new samples into the PoN, you have to delete the PoN and  the genomicsDB directory manually and restart the workflow.  
-Path to PoN: `output_directory/normals/PoN_single.vcf.gz`  
-Path to genomicsDB: `output_directory/pon_db_single`  
-
+Please note that once the PoN is created it will not be automaticatlly updated when you add normal samples to the samples.tsv. To include new samples into the PoN restart the workflow from 

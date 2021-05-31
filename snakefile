@@ -8,6 +8,7 @@ REFDIR=config["Reference"]
 DATADIR=config["Data"]
 TARGETS=config["targt_bed"]
 OUTDIR=config["Output"]
+ANNOVAR=config["Annovar"]
 
 ##JSON control if all required input files and check path
 ##Implement conda environments 
@@ -15,12 +16,18 @@ OUTDIR=config["Output"]
 #Read sample.tsv
 #set_index: indexed the dataframe with the column sample without droping the column out of the dataframe
 samples = pd.read_table(config["Sample"], sep="\t", dtype=object).set_index(["sample", "condition","rep"], drop=False)
+#Separate conditions from pandas 
+tumor_only=samples[samples['condition'].str.contains('Tumor')]
+tumor_only.columns=['bam', 'sample_tumor', 'condition_tumor',"rep_tumor"]
+tumor_only.set_index(["sample_tumor","condition_tumor", "rep_tumor"], drop=False)
 
-tumor_only=samples[samples['condition'].str.contains('umor')]
-tumor_only.set_index(["sample","condition", "rep"], drop=False)
-control_only=samples[samples['condition'].str.contains('ormal')]
+
+control_only=samples[samples['condition'].str.contains('Normal')]
 control_only.set_index(["sample","condition", "rep"], drop=False)
 # Input function!
+""" 
+Input function gets all bam file path from pandas and sets the wildcards
+"""
 def get_files(wildcards):
     return join(DATADIR, samples.loc[(wildcards.sample, wildcards.condition, wildcards.rep), "bam"])
 
@@ -44,12 +51,11 @@ def get_samples(wildcards):
 rule all:
     input:
 #        expand(OUTDIR+"/fastq/{units.sample}_{units.condition}_{units.rep}.fastq", units=samples.itertuples())
-        expand(OUTDIR+"/merged/{units.sample}_{units.condition}_merge.bam", units=samples.itertuples()),
+#        expand(OUTDIR+"/merged/{units.sample}_{units.condition}_merge.bam", units=samples.itertuples()),
         expand(OUTDIR+"/bamstats/{units.sample}_{units.condition}_merge_stats", units=samples.itertuples()),
 #        expand(OUTDIR+"/normals/{normal.sample}_{normal.condition}_{normal.rep}_mutect2.vcf.gz", normal=control_only.itertuples(), allow_missing=True),
-        expand(OUTDIR+"/mutect/{tumor.sample}_{tumor.condition}_{tumor.rep}_mutect2.vcf.gz", tumor=tumor_only.itertuples())
-#        expand(OUTDIR+"/mutect/MergeEval/{tumor}_2_mutect2_filtered_PASS.vcf.gz", tumor=config["Tumor"]),
-#        expand(OUTDIR+"/bamstats/{sample}_merge_stats", sample=config["samples"])
+#        expand(OUTDIR+"/mutect/{tumor.sample_tumor}_{tumor.condition_tumor}_{tumor.rep_tumor}_mutect2.vcf.gz", tumor=tumor_only.itertuples()),
+        expand(OUTDIR+"/annotation/{tumor.sample_tumor}_{tumor.condition_tumor}_1_isec.avinput", tumor=tumor_only.itertuples())
 
 
 ####################
@@ -187,14 +193,14 @@ rule samtools_index_single:
 rule mutect2_normal:
     input:
         ref=REFDIR,
-        norm=OUTDIR+"/sorted/{sample}_{condition}_{rep}.sorted.bam",
-        bai=OUTDIR+"/sorted/{sample}_{condition}_{rep}.sorted.bam.bai"
+        norm=OUTDIR+"/sorted/{sample}_{condition}_1.sorted.bam",
+        bai=OUTDIR+"/sorted/{sample}_{condition}_1.sorted.bam.bai"
     threads: 4
     wildcard_constraints:
         condition= '|'.join([re.escape(x) for x in samples.condition if x == 'Normal']),
-        rep= '|'.join([re.escape(x) for x in samples.rep if x == 1])
+    #    rep= '|'.join([re.escape(x) for x in samples.rep if x == 1])
     output:
-        OUTDIR+"/normals/{sample}_{condition}_{rep}_mutect2.vcf.gz"
+        OUTDIR+"/normals/{sample}_{condition}_1_mutect2.vcf.gz"
     shell:
         "gatk Mutect2 \
         -R {input.ref} \
@@ -206,13 +212,13 @@ rule mutect2_normal:
 
 rule mutect2_normal_filtering:
     input:
-        vcf=OUTDIR+"/normals/{sample}_{condition}_{rep}_mutect2.vcf.gz",
+        vcf=OUTDIR+"/normals/{sample}_{condition}_1_mutect2.vcf.gz",
         ref=REFDIR
     wildcard_constraints:
         condition= '|'.join([re.escape(x) for x in samples.condition if x == 'Normal']),
-        rep= '|'.join([re.escape(x) for x in samples.rep if x == 1])
+    #    rep= '|'.join([re.escape(x) for x in samples.rep if x == 1])
     output:
-        OUTDIR+"/normals/{sample}_{condition}_{rep}_mutect2_filtered.vcf.gz"
+        OUTDIR+"/normals/{sample}_{condition}_1_mutect2_filtered.vcf.gz"
     shell:
         "gatk FilterMutectCalls \
         -V {input.vcf} \
@@ -223,14 +229,14 @@ rule mutect2_normal_filtering:
 # Wäre cool wenn man diese Regel in Python code umschreiben könnte, damit sie nicht im Flow Diagram auftaucht
 rule sample_map:
     input:
-        sample=expand(OUTDIR+"/normals/{units.sample}_{units.condition}_{units.rep}_mutect2_filtered.vcf.gz",units=control_only.itertuples(), allow_missing=True )
+        sample=expand(OUTDIR+"/normals/{units.sample}_{units.condition}_1_mutect2_filtered.vcf.gz",units=control_only.itertuples(), allow_missing=True )
     wildcard_constraints:
         condition= '|'.join([re.escape(x) for x in samples.condition if x == 'Normal']),
-        rep= '|'.join([re.escape(x) for x in samples.rep if x == 1])
+     #   rep= '|'.join([re.escape(x) for x in samples.rep if x == 1])
     params:
-        name=expand("{units.sample}_{units.condition}_{units.rep}_mutect2_filtered.vcf.gz", units=control_only.itertuples(), allow_missing=True)
+        name=expand("{units.sample}_{units.condition}_1_mutect2_filtered.vcf.gz", units=control_only.itertuples(), allow_missing=True)
     output:
-        temp(OUTDIR+"/normals/sample-name-map.xls")
+        OUTDIR+"/normals/sample-name-map.xls"
     script:
         "scripts/sample-name-map.R"
 
@@ -289,7 +295,7 @@ rule mutect2_calling:
         --max-reads-per-alignment-start 0 -O {output}"""
 
 # Rule 7a: filter Mutect2 calls using gatk FilterMutectCalls
-# Filtering and intersection! Change script! 
+# Annotate variant filters, filter for DP > 100 and remove all mutations with filter status
 rule mutect2_filtering:
     input:
         OUTDIR+"/mutect/{sample}_{condition}_{rep}_mutect2.vcf.gz"       
@@ -300,16 +306,45 @@ rule mutect2_filtering:
     conda:
         "envs/filtering.yaml"
     output:
-        output1=OUTDIR+"/mutect/MergeEval/{sample}_{condition}_{rep}_mutect2_filtered.vcf.gz",
-        output2=OUTDIR+"/mutect/MergeEval/{sample}_{condition}_{rep}_mutect2_filtered_PASS.vcf.gz"
+        output1=OUTDIR+"/mutect/filtered/{sample}_{condition}_{rep}_mutect2_filtered.vcf.gz",
+        output2=OUTDIR+"/mutect/filtered/{sample}_{condition}_{rep}_mutect2_filtered_100.vcf.gz",
+        output3=OUTDIR+"/mutect/filtered/{sample}_{condition}_{rep}_mutect2_filtered_PASS.vcf.gz"
     shell:
-        "scripts/filter+isec_Mutect_merged.sh {input} {output.output1} {output.output2} {params.ref}"
+        "scripts/filter+isec_Mutect_merged.sh {input} {output.output1} {output.output2} {output.output3} {params.ref}"
 
 
-
-# Intersect + analyse VCFS
+rule dup_intersection:
+    input:
+        rep1=OUTDIR+"/mutect/filtered/{sample}_{condition}_1_mutect2_filtered_PASS.vcf.gz",
+        rep2=OUTDIR+"/mutect/filtered/{sample}_{condition}_2_mutect2_filtered_PASS.vcf.gz"
+    conda:
+        "envs/filtering.yaml"
+    threads: workflow.cores
+    params:
+        name="{sample}_{condition}",
+        path=OUTDIR+"/intersect"
+    output:
+        out1=OUTDIR+"/intersect/{sample}_{condition}_1_private.vcf",
+        out2=OUTDIR+"/intersect/{sample}_{condition}_2_private.vcf",
+        out3=OUTDIR+"/intersect/{sample}_{condition}_1_isec.vcf",
+        out4=OUTDIR+"/intersect/{sample}_{condition}_2_isec.vcf"
+    shell:        
+        "scripts/bcf_intersect.sh  {input.rep1} {input.rep2} {params.name} {params.path}"
 
 # Annotation 
+rule annovar:
+    input:
+        OUTDIR+"/intersect/{sample}_{condition}_1_isec.vcf"
+    params:
+        annovar=ANNOVAR,
+        file_path=OUTDIR+"/annotation/{sample}_{condition}_1_isec"
+    output:
+        out1=OUTDIR+"/annotation/{sample}_{condition}_1_isec.avinput",
+        out2=OUTDIR+"/annotation/{sample}_{condition}_1_isec.hg38_multianno.txt",
+        out3=OUTDIR+"/annotation/{sample}_{condition}_1_isec.hg38_multianno.vcf"
+    shell:
+        "scripts/annovar.sh {input} {params.file_path} {params.annovar}"
+
 
 # Grafical output SNV Analysis
 
@@ -318,6 +353,7 @@ rule mutect2_filtering:
 ###############
 
 # DONE separate workflow
+
 
 
 
