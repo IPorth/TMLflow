@@ -125,7 +125,6 @@ rule bed_file_construction:
     conda:
        "envs/environment.yaml"
     output:
-        vardict=OUTDIR+"/target_files/Targets_Vardict.bed",
         cnvkit=OUTDIR+"/target_files/Targets_CNVkit_Mutect.bed",
         ONCOCNV=OUTDIR+"/target_files/Targets_ONCOCNV.bed"
     script:
