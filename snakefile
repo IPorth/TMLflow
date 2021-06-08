@@ -228,10 +228,10 @@ rule mutect2_normal_filtering:
 # Wäre cool wenn man diese Regel in Python code umschreiben könnte, damit sie nicht im Flow Diagram auftaucht
 rule sample_map:
     input:
-        sample=expand(OUTDIR+"/normals/{units.sample}_{units.condition}_1_mutect2_filtered.vcf.gz",units=control_only.itertuples(), allow_missing=True )
+        sample=expand(OUTDIR+"/normals/{units.sample}_{units.condition}_{units.rep}_mutect2_filtered.vcf.gz",units=control_only.itertuples(), allow_missing=True )
     wildcard_constraints:
         condition= '|'.join([re.escape(x) for x in samples.condition if x == 'Normal']),
-     #   rep= '|'.join([re.escape(x) for x in samples.rep if x == 1])
+        rep= '|'.join([re.escape(x) for x in samples.rep if x == 1])
     params:
         name=expand("{units.sample}_{units.condition}_1_mutect2_filtered.vcf.gz", units=control_only.itertuples(), allow_missing=True)
     output:
@@ -309,7 +309,7 @@ rule mutect2_filtering:
         output2=OUTDIR+"/mutect/filtered/{sample}_{condition}_{rep}_mutect2_filtered_100.vcf.gz",
         output3=OUTDIR+"/mutect/filtered/{sample}_{condition}_{rep}_mutect2_filtered_PASS.vcf.gz"
     shell:
-        "scripts/filter+isec_Mutect_merged.sh {input} {output.output1} {output.output2} {output.output3} {params.ref}"
+        "scripts/filter_mutect_single.sh {input} {output.output1} {output.output2} {output.output3} {params.ref}"
 
 
 rule dup_intersection:
