@@ -62,10 +62,9 @@ rule all:
 # Data preparation #
 ####################
 
-# Rule 1: convertes input bam file to fastq file using picard tools SamToFastq.
-# The step is specific for IONTORRENT data
-
 rule bam_to_fastq:
+    """convertes input bam file to fastq file using picard tools SamToFastq.
+    The step is specific for IONTORRENT data"""
     input:
         get_files
     conda:
@@ -75,9 +74,8 @@ rule bam_to_fastq:
     shell:
         "picard SamToFastq --INPUT {input} --FASTQ {output}"
 
-# Rule 2: fastq generated in rule 1 mapped to reference genome hg38 in the first step
-# Second step saves the mapped reads as bam file and
 rule bwa_map:
+    """mapps fastq to reference genome in REFDIR and saves mapped reads as bam file"""
     input:
         REFDIR,
         OUTDIR+"/fastq/{sample}_{condition}_{rep}.fastq"
@@ -89,10 +87,9 @@ rule bwa_map:
         rg="@RG\\tID:{sample}_{condition}_{rep}\\tSM:{sample}_{condition}_{rep}"
     shell:
         "bwa mem -R '{params.rg}' {input} | samtools view -Sb - > {output}"
-
-# Rule 3:  Sort the bam file from rule 2 according to chr.
-# Preparation for index and merge
+  
 rule samtools_sort:
+    """Sorts bam according to chr. Preparation for index and merge"""
     input:
         OUTDIR+"/mapped/{sample}_{condition}_{rep}_realign.bam"
     conda:
@@ -102,10 +99,10 @@ rule samtools_sort:
     shell:
         "samtools sort -O bam {input} -o {output}"
 
-# Rule 4: All sorted bam files belonging to the same sample are merged into a single file
-# This step is only required for CNV calling. Check if CNV calling works on singles too!
-# Replicates are hard coded currently, search for a solution
 rule samtools_merge:
+    """ Duplicates merged into single file
+    This step is only required for CNV calling. Check if CNV calling works on singles too!
+    Replicates are hard coded currently, search for a solution"""    
     input:
         #expand(OUTDIR+"/sorted/{units.sample}_{units.condition}_{{rep}}.sorted.bam", units=samples.itertuples(), allow_missing=True)
         OUTDIR+"/sorted/{sample}_{condition}_1.sorted.bam",
@@ -291,6 +288,7 @@ rule mutect2_calling:
         """gatk Mutect2 -R {input.ref} -I {input.bam} \
         --intervals {input.target} --native-pair-hmm-threads {threads} \
         --germline-resource {input.germ} \
+        --panel-of-normals {input.pon} \
         --max-reads-per-alignment-start 0 -O {output}"""
 
 # Rule 7a: filter Mutect2 calls using gatk FilterMutectCalls
@@ -306,10 +304,12 @@ rule mutect2_filtering:
         "envs/filtering.yaml"
     output:
         output1=OUTDIR+"/mutect/filtered/{sample}_{condition}_{rep}_mutect2_filtered.vcf.gz",
-        output2=OUTDIR+"/mutect/filtered/{sample}_{condition}_{rep}_mutect2_filtered_100.vcf.gz",
-        output3=OUTDIR+"/mutect/filtered/{sample}_{condition}_{rep}_mutect2_filtered_PASS.vcf.gz"
+        output2=OUTDIR+"/mutect/filtered/{sample}_{condition}_{rep}_mutect2_filtered_selected.vcf.gz",
+        output3=OUTDIR+"/mutect/filtered/{sample}_{condition}_{rep}_mutect2_filtered_100_003.vcf",
+        output4=OUTDIR+"/mutect/filtered/{sample}_{condition}_{rep}_mutect2_filtered_100_003_cleaned.vcf",
+        output5=OUTDIR+"/mutect/filtered/{sample}_{condition}_{rep}_mutect2_filtered_PASS.vcf.gz"
     shell:
-        "scripts/filter_mutect_single.sh {input} {output.output1} {output.output2} {output.output3} {params.ref}"
+        "scripts/filter_mutect_single.sh {input} {output.output1} {output.output2} {output.output3} {output.output4} {output.output5} {params.ref}"
 
 
 rule dup_intersection:
