@@ -14,10 +14,13 @@ Analysis: SNV, CNV, coverage, annotation and heterogeneity index.
 ## Software and hardware requirements  
 Conda or Miniconda
 OS: Linux, Windows 10 with WSL2, not tested on Mac
+Hardware: Idk, find out!
+
 
 ### Preparations
 #### Install required software
-Conda or Miniconda
+Conda or Miniconda  
+For information about conda please visit: https://docs.conda.io/en/latest/
 
 #### Preparing a working directory
 Generate a working directory  
@@ -43,8 +46,8 @@ In the activated environment you can use picard tools to do so:
 `picard CreateSequenceDictionary R=path/to/reference.fasta O=path/to/reference.dict`  
 
 #### Target bed
-Bed file requires the columns: chr, start, end, amplicon name, gene name in this order.  
-Make sure that your target region coordinates are based on the reference used to analyze the data. If not, use liftOver to convert the regions to the right reference (https://genome.ucsc.edu/cgi-bin/hgLiftOver). 
+Bed file requires the columns: chr, start, end, amplicon name, gene name in this particular order.  
+Make sure that your target region coordinates are based on the reference use to analyze the data. If not, use liftOver to convert the regions to the right reference (https://genome.ucsc.edu/cgi-bin/hgLiftOver). 
 
 #### Config file and samples.tsv  
 Fill in your data information into the samples.tsv. 
@@ -68,14 +71,14 @@ Insert required location information for the following files and directories int
 - Annovar directory
 
 
-
 #### Download required software and supporting files
 ##### Annovar
 Register on https://annovar.openbioinformatics.org/en/latest/ to download Annovar. Check that the reference genome of supporting databases matches the one used to generate the data.  
 
 ##### ONCOCNV
+ONCOCNV: search for solution which is not too complicated..
 
-- ONCOCNV
+
 ##### Mutect2 SNP database
 Download the germline database somatic-hg38_af-only-gnomad.hg38.vcf.gz and its index file from https://console.cloud.google.com/storage/browser/gatk-best-practices/somatic-hg38?pli=1.
 Store the files in /path/to/TMLflow/support.
