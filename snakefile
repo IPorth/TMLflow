@@ -334,13 +334,17 @@ rule annovar:
         OUTDIR+"/intersect/{sample}_{condition}_1_isec.vcf"
     params:
         annovar=ANNOVAR,
-        file_path=OUTDIR+"/annotation/{sample}_{condition}_1_isec"
+        file_path=OUTDIR+"/annotation/{sample}_{condition}_1_isec",
+        name="{sample}_{condition}_1_isec",
+        folder= OUTDIR+"/annotation/"
     output:
         out1=OUTDIR+"/annotation/{sample}_{condition}_1_isec.avinput",
         out2=OUTDIR+"/annotation/{sample}_{condition}_1_isec.hg38_multianno.txt",
         out3=OUTDIR+"/annotation/{sample}_{condition}_1_isec.hg38_multianno.vcf"
     shell:
-        "scripts/annovar.sh {input} {params.file_path} {params.annovar}"
+        #"scripts/annovar.sh {input} {params.file_path} {params.annovar} {output.out1} {output.out2} {output.out3} {params.name} {params.folder}"
+        "scripts/annovar_2.sh {input} {params.file_path} {params.annovar} {params.name} {params.folder}"
+
 
 
 # Grafical output SNV Analysis
