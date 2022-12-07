@@ -47,7 +47,7 @@ Then the environment can be activated by executing:
 For deactiation execute:  
 `conda deactivate`  
 
-### Generated reference additional files
+### Generate reference additional files
 To use bwa mem, the reference has to be indexed with the command bwa mem index. An index with samtools faidx is not sufficient.
 Execute the following code in the activated TMLflow environment:    
 `bwa mem index /path/to/ref.fa`  
@@ -85,7 +85,7 @@ Insert required location information for the following files and directories int
 ## Run TMLflow
 The workflow uses different environments. It is recommended to create the environments before starting the workflow.  
 `snakemake --use-conda --conda-create-envs-only --cores {NumberOfCores}`  
-Start the workflow with
+Start the workflow with:  
 `snakemake --use-conda --cores {NumberOfCores}`  
 
 
