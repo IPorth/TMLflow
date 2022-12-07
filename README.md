@@ -8,7 +8,7 @@ CNV calling is performed on merged duplicates with ONCOCNV [https://github.com/B
 
 
 # Flowchart TMLflow
-"![Flowchart TMLflow](https://github.com/IPorth/TMLflow/workflow.png?raw=true)"
+![Flowchart TMLflow](https://github.com/IPorth/TMLflow/blob/main/workflow.png?raw=true)
 
 ## Required input files
 - bam files (IonTorrent, tumor and normal samples, unmatched, 2 replicates)
