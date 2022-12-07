@@ -7,7 +7,7 @@ Path_ONCOCNV <- snakemake@output[["ONCOCNV"]]
 #print(Path_ONCOCNV)
 Path_cnvkit <- snakemake@output[["cnvkit"]]
 #print(Path_cnvkit)
-Path_vardict <- snakemake@output[["vardict"]]
+#Path_vardict <- snakemake@output[["vardict"]]
 #print(Path_vardict)
 
 

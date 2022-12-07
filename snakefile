@@ -10,13 +10,10 @@ TARGETS=config["targt_bed"]
 OUTDIR=config["Output"]
 ANNOVAR=config["Annovar"]
 
-##JSON control if all required input files and check path
-##Implement conda environments 
-
 #Read sample.tsv
 #set_index: indexed the dataframe with the column sample without droping the column out of the dataframe
 samples = pd.read_table(config["Sample"], sep="\t", dtype=object).set_index(["sample", "condition","rep"], drop=False)
-#Separate conditions from pandas 
+#Separate conditions from pandas
 tumor_only=samples[samples['condition'].str.contains('Tumor')]
 tumor_only.columns=['bam', 'sample_tumor', 'condition_tumor',"rep_tumor"]
 tumor_only.set_index(["sample_tumor","condition_tumor", "rep_tumor"], drop=False)
@@ -24,9 +21,9 @@ tumor_only.set_index(["sample_tumor","condition_tumor", "rep_tumor"], drop=False
 
 control_only=samples[samples['condition'].str.contains('Normal')]
 control_only.set_index(["sample","condition", "rep"], drop=False)
-# Input function!
-""" 
-Input function gets all bam file path from pandas and sets the wildcards
+# Input functions!
+"""
+Input function get_files gets all bam file path from pandas and sets the wildcards
 """
 def get_files(wildcards):
     return join(DATADIR, samples.loc[(wildcards.sample, wildcards.condition, wildcards.rep), "bam"])
@@ -36,27 +33,15 @@ def get_normals(wildcards):
 
 def get_tumor(wildcards):
     return tumor_only.loc(wildcards.sample, wildcards.condition, wildcards.rep)
-#Eventuell den df nur in tumor und control aufteilen
 
-
-""""
-Original
-def get_samples(wildcards):
-    return join(DATADIR, wildcards.sample, units.loc[(wildcards.sample, wildcards.type, wildcards.rep), 
-                ["fq1", "fq2"]].dropna()
-"""
 
 # Rule 0: includes all files, which should be present at the end of the run.
-# Output of the current last rule of each chapter of the code 
+# Output of the current last rule of each chapter of the code
 rule all:
     input:
-#        expand(OUTDIR+"/fastq/{units.sample}_{units.condition}_{units.rep}.fastq", units=samples.itertuples())
-#        expand(OUTDIR+"/merged/{units.sample}_{units.condition}_merge.bam", units=samples.itertuples()),
         expand(OUTDIR+"/bamstats/{units.sample}_{units.condition}_merge_stats", units=samples.itertuples()),
-#        expand(OUTDIR+"/normals/{normal.sample}_{normal.condition}_{normal.rep}_mutect2.vcf.gz", normal=control_only.itertuples(), allow_missing=True),
-#        expand(OUTDIR+"/mutect/{tumor.sample_tumor}_{tumor.condition_tumor}_{tumor.rep_tumor}_mutect2.vcf.gz", tumor=tumor_only.itertuples()),
-        expand(OUTDIR+"/annotation/{tumor.sample_tumor}_{tumor.condition_tumor}_1_isec.avinput", tumor=tumor_only.itertuples())
-
+        expand(OUTDIR+"/annotation/{tumor.sample_tumor}_{tumor.condition_tumor}_1_isec.avinput", tumor=tumor_only.itertuples()),
+        expand(OUTDIR+"/CNV/ONCOCNV/{tumor.sample_tumor}_{tumor.condition_tumor}_merge.profile.png", tumor=tumor_only.itertuples(),allow_missing=True)
 
 ####################
 # Data preparation #
@@ -87,7 +72,7 @@ rule bwa_map:
         rg="@RG\\tID:{sample}_{condition}_{rep}\\tSM:{sample}_{condition}_{rep}"
     shell:
         "bwa mem -R '{params.rg}' {input} | samtools view -Sb - > {output}"
-  
+
 rule samtools_sort:
     """Sorts bam according to chr. Preparation for index and merge"""
     input:
@@ -100,13 +85,11 @@ rule samtools_sort:
         "samtools sort -O bam {input} -o {output}"
 
 rule samtools_merge:
-    """ Duplicates merged into single file
-    This step is only required for CNV calling. Check if CNV calling works on singles too!
-    Replicates are hard coded currently, search for a solution"""    
+    """ Duplicates merged into single file. This step is only required for CNV calling."""
     input:
        #expand(OUTDIR+"/sorted/{units.sample}_{units.condition}_{{rep}}.sorted.bam", units=samples.itertuples(), allow_missing=True)
         OUTDIR+"/sorted/{sample}_{condition}_1.sorted.bam",
-        OUTDIR+"/sorted/{sample}_{condition}_2.sorted.bam"   
+        OUTDIR+"/sorted/{sample}_{condition}_2.sorted.bam"
     conda:
        "envs/environment.yaml"
     output:
@@ -114,7 +97,8 @@ rule samtools_merge:
     shell:
         "samtools merge {output} {input}"
 
-# Rule 6a0: Generation of target bed files  
+# Rule 6a0: Generation of target bed files
+"""Takes input bed file and adjusts it to meet requirements of ONCOCNV and Mutect2 """
 rule bed_file_construction:
     input:
         bed=TARGETS
@@ -151,7 +135,6 @@ rule CoverageAnalysis:
        -R {params.ref} \
        -O {output.Output1}"
 
-# Rscript to isolate and formate information
 
 # Rule 5: Indexing the merged bam files
 rule samtools_index_merged:
@@ -193,7 +176,7 @@ rule mutect2_normal:
     threads: 4
     wildcard_constraints:
         condition= '|'.join([re.escape(x) for x in samples.condition if x == 'Normal']),
-    #    rep= '|'.join([re.escape(x) for x in samples.rep if x == 1]) Funktioniert nicht, aber ich weiß auch nicht warum..
+    #    rep= '|'.join([re.escape(x) for x in samples.rep if x == 1])
     output:
         OUTDIR+"/normals/{sample}_{condition}_1_mutect2.vcf.gz"
     shell:
@@ -221,7 +204,6 @@ rule mutect2_normal_filtering:
         -O {output}"
 
 # Rule 6b: Generate sample-name-mapped
-# Wäre cool wenn man diese Regel in Python code umschreiben könnte, damit sie nicht im Flow Diagram auftaucht
 rule sample_map:
     input:
         sample=expand(OUTDIR+"/normals/{units.sample}_{units.condition}_1_mutect2_filtered.vcf.gz",units=control_only.itertuples(), allow_missing=True )
@@ -273,7 +255,6 @@ rule mutect2_calling:
         bam=OUTDIR+"/sorted/{sample}_{condition}_{rep}.sorted.bam",
         bai=OUTDIR+"/sorted/{sample}_{condition}_{rep}.sorted.bam.bai",
         ref=REFDIR,
-        germ="support/somatic-hg38_af-only-gnomad.hg38.vcf.gz",
         target=OUTDIR+"/target_files/Targets_CNVkit_Mutect.bed",
         pon=OUTDIR+"/normals/TML_PoN_single.vcf.gz"
     threads: 4
@@ -286,15 +267,15 @@ rule mutect2_calling:
     shell:
         """gatk Mutect2 -R {input.ref} -I {input.bam} \
         --intervals {input.target} --native-pair-hmm-threads {threads} \
-        --germline-resource {input.germ} \
         --panel-of-normals {input.pon} \
         --max-reads-per-alignment-start 0 -O {output}"""
 
-# Rule 7a: filter Mutect2 calls using gatk FilterMutectCalls
-# Annotate variant filters, filter for DP > 100 and remove all mutations with filter status
+
+#Rule 7a: filter Mutect2 calls using gatk FilterMutectCalls
+# Annotate variant filters, filter for DP > 250  and AF > 0.1. Remove all mutations with filter status
 rule mutect2_filtering:
     input:
-        OUTDIR+"/mutect/{sample}_{condition}_{rep}_mutect2.vcf.gz"       
+        OUTDIR+"/mutect/{sample}_{condition}_{rep}_mutect2.vcf.gz"
     params:
         ref=REFDIR
     wildcard_constraints:
@@ -304,10 +285,11 @@ rule mutect2_filtering:
     output:
         output1=OUTDIR+"/mutect/filtered/{sample}_{condition}_{rep}_mutect2_filtered.vcf.gz",
         output2=OUTDIR+"/mutect/filtered/{sample}_{condition}_{rep}_mutect2_filtered_selected.vcf.gz",
-        output3=OUTDIR+"/mutect/filtered/{sample}_{condition}_{rep}_mutect2_filtered_100_003.vcf",
-        output4=OUTDIR+"/mutect/filtered/{sample}_{condition}_{rep}_mutect2_filtered_100_003_cleaned.vcf",
+        output3=OUTDIR+"/mutect/filtered/{sample}_{condition}_{rep}_mutect2_filtered_250_01.vcf",
+        output4=OUTDIR+"/mutect/filtered/{sample}_{condition}_{rep}_mutect2_filtered_250_01_cleaned.vcf",
         output5=OUTDIR+"/mutect/filtered/{sample}_{condition}_{rep}_mutect2_filtered_PASS.vcf.gz"
     shell:
+        #"scripts/filter_mutect_single.sh {input} {output.output1}  {output.output3}  {output.output5} {params.ref}"
         "scripts/filter_mutect_single.sh {input} {output.output1} {output.output2} {output.output3} {output.output4} {output.output5} {params.ref}"
 
 rule dup_intersection:
@@ -325,10 +307,10 @@ rule dup_intersection:
         out2=OUTDIR+"/intersect/{sample}_{condition}_2_private.vcf",
         out3=OUTDIR+"/intersect/{sample}_{condition}_1_isec.vcf",
         out4=OUTDIR+"/intersect/{sample}_{condition}_2_isec.vcf"
-    shell:        
+    shell:
         "scripts/bcf_intersect.sh  {input.rep1} {input.rep2} {params.name} {params.path}"
 
-# Annotation 
+# Annotation
 rule annovar:
     input:
         OUTDIR+"/intersect/{sample}_{condition}_1_isec.vcf"
@@ -342,21 +324,49 @@ rule annovar:
         out2=OUTDIR+"/annotation/{sample}_{condition}_1_isec.hg38_multianno.txt",
         out3=OUTDIR+"/annotation/{sample}_{condition}_1_isec.hg38_multianno.vcf"
     shell:
-        #"scripts/annovar.sh {input} {params.file_path} {params.annovar} {output.out1} {output.out2} {output.out3} {params.name} {params.folder}"
         "scripts/annovar_2.sh {input} {params.file_path} {params.annovar} {params.name} {params.folder}"
 
 
+######################
+# CNV Calling ONCOCNV#
+######################
 
-# Grafical output SNV Analysis
+"""#Prepare variables for ONCOCNV, the part above is identical in the TMLflow snakefile. Combine the workflows when we have decided if single calling is supported
+or not. """
+ext_T= "_Tumor_merge.bam"
+tumor_only_no_index=samples[samples['condition'].str.contains('Tumor')]
+Tumor_names=tumor_only_no_index["sample"]
+Tumor_names_unique = Tumor_names.unique()
+output_tu = ["{}{}".format(i,ext_T) for i in Tumor_names_unique]
+Tumor_names_all = ','.join(output_tu)
 
-###############
-# CNV Calling #
-###############
+ext_C= "_Normal_merge.bam"
+control_only_no_index=samples[samples['condition'].str.contains('Normal')]
+Control_names=control_only_no_index["sample"]
+Control_names_unique = Control_names.unique()
+output_co = ["{}{}".format(i,ext_C) for i in Control_names_unique]
+control_names_all = ','.join(output_co)
 
-# DONE separate workflow
 
-
-
-
+rule ONCOCNV_merged:
+    input:
+        tumor_bam_file=expand(OUTDIR+"/merged/{units.sample_tumor}_{units.condition_tumor}_merge.bam",units=tumor_only.itertuples(), allow_missing=True),
+        normal_bam_file=expand(OUTDIR+"/merged/{units.sample}_{units.condition}_merge.bam",units=control_only.itertuples(), allow_missing=True)
+    params:
+        tumor_bam=Tumor_names_all,
+        normal_bam=control_names_all,
+        ref_dir=REFDIR,
+        out_dir= OUTDIR+"/CNV/ONCOCNV",
+        tool_dir= "ONCOCNV-master/ONCOCNV-master/src",
+        data_dir= OUTDIR+"/merged",
+        target_dir= OUTDIR+"/target_files/Targets_ONCOCNV.bed"
+    conda:
+        "envs/Oncocnv.yaml"
+    output:    
+        out1=expand(OUTDIR+"/CNV/ONCOCNV/{units.sample_tumor}_{units.condition_tumor}_merge.profile.png",units=tumor_only.itertuples(), allow_missing=True),
+        out2=expand(OUTDIR+"/CNV/ONCOCNV/{units.sample_tumor}_{units.condition_tumor}_merge.profile.txt",units=tumor_only.itertuples(), allow_missing=True),
+        out3=expand(OUTDIR+"/CNV/ONCOCNV/{units.sample_tumor}_{units.condition_tumor}_merge.summary.txt",units=tumor_only.itertuples(), allow_missing=True)
+    shell:
+        "bash ONCOCNV-master/ONCOCNV-master/src/ONCOCNV.sh {params.tumor_bam} {params.normal_bam} {params.ref_dir} {params.out_dir} {params.tool_dir} {params.data_dir} {params.target_dir}"
 
 

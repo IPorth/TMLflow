@@ -1,4 +1,0 @@
-Building DAG of jobs...
-MissingInputException in line 21 of /mnt/c/Users/ladmin/Documents/GitHub/TMLflow/Snakefile:
-Missing input files for rule bam_to_fastq:
-/mnt/e/TMLflow-merged/data/single/Pat1_19_14281_2-2_N_2.bam

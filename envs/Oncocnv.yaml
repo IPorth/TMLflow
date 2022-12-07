@@ -1,0 +1,20 @@
+channels:
+  - conda-forge
+  - bioconda
+  - r
+dependencies:
+  - samtools=1.7
+  - bedtools=2
+  - r=3
+  - r-mass 
+  - r-mclust 
+  - r-pscbs 
+  - bioconductor-dnacopy
+  - r-scales
+  - r-cwhmisc
+  - r-r.cache
+  - r-fastica 
+  - r-digest
+  - perl =5
+
+

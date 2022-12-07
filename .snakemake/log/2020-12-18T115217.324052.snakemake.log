@@ -1,7 +1,0 @@
-Building DAG of jobs...
-MissingInputException in line 11 of /mnt/c/Users/ladmin/Documents/GitHub/TMLflow/Snakefile:
-Missing input files for rule all:
-/mnt/e/TMLflow-merged/data/single/merged/Pat1_19_14281_2-2_N_merge.bam.bai
-/mnt/e/TMLflow-merged/data/single/merged/Pat11_11_54964_I_TB_merge.bam.bai
-/mnt/e/TMLflow-merged/data/single/merged/Pat1_19_8396_TB_merge.bam.bai
-/mnt/e/TMLflow-merged/data/single/merged/Pat11_11_54964_IV_N_merge.bam.bai

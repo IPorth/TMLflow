@@ -1,8 +1,6 @@
-# Path to data, reference and output directory (required)
-# Do not write the paths as a list!
-Reference: "/mnt/d/TMLflow-merged/data/reference/hg38.fa"
-Data: "/mnt/d/TMLflow-merged/data/single"
-Output: "/mnt/d/TMLflow-merged/data/output"
-Sample: "/mnt/d/TMLflow-merged/data/single/samples.tsv"
-Annovar: "/mnt/y/MetGaP/Annovar"
-targt_bed: "/mnt/d/Target_regions/TML/Oncomine_TML.20180605_hg38.designed.bed"
+Reference: "/path/to/Reference.fa"
+Data: "/path/to/bam_files_folder"
+Output: "/path/to/output_folder"
+Sample: "/path/to/samples.tsv"
+Annovar: "/path/to/Annovar_folder"
+targt_bed: "/path/to/targets.bed"
