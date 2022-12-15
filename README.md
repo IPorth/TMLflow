@@ -3,7 +3,7 @@ Pipeline for the analysis of SNV and CNV using data from Oncomine Tumor Mutation
 It uses bam files of tumor and normal FFPE samples from Ion Torrent S5 Prime sequencer.  
 The pipeline is designed to run with two replicates, analyses SNVS with Mutect2 tumor-only mode  
 separately and takes the SNV found in both replicates.  
-Default SNV filtering thresholds are AF>0.05 and DP>250. A panel of normals is utlized in SNV calling.  
+Default SNV filtering thresholds are AF>0.1 and DP>250. A panel of normals is utlized in SNV calling.  
 CNV calling is performed on merged duplicates with ONCOCNV [https://github.com/BoevaLab/ONCOCNV]
 
 
@@ -30,17 +30,16 @@ Register on https://annovar.openbioinformatics.org/en/latest/ to download Annova
 Generate a working directory  
 `mkdir TMLflow`  
 `cd TMLflow`  
-Clone GitHub TMLflow repository into the directory  
+Clone GitHub TMLflow repository into the directory.  
 
-#### ONCOCNV
+### ONCOCNV
 Download ONCOCNV from https://github.com/BoevaLab/ONCOCNV/releases/tag/v6.9.
 Place ONCOCNV-master folder into TMLflow directory.  
-Open ONCOCNV.sh and exchange the lines below "Set path arguments" until  
-"Run commands" (version 6.9 lines 41-58) with the code in scripts/ONCOCNV_adjust.sh.  
-This allows TMLflow to set paths and variables automatically
+Open ONCOCNV.sh and exchange the lines below "Set path arguments" until "Run commands" (version 6.9 lines 41-58) with the code in scripts/ONCOCNV_adjust.sh.  
+This allows TMLflow to set paths and variables automatically.
 
 ### Create and activate the environment
-At first time, the environments have to be created.  
+First, the environment has to be created.  
 `conda env create --name TMLflow --file environment.yaml`  
 Then the environment can be activated by executing:  
 `conda activate TMLflow`  
@@ -53,7 +52,7 @@ Execute the following code in the activated TMLflow environment:
 `bwa mem index /path/to/ref.fa`  
 
 For Mutect2, a dictionary of your reference has to be generated. This step has to be performed once before you start the workflow for each reference. The reference dictionary has to be in the same directory as the reference itself.   
-In the activated environment you can use picard tools to do so:  
+In the activated TMLflow environment you can use picard tools to do so:  
 `picard CreateSequenceDictionary R=path/to/ref.fa O=path/to/ref.dict`  
 
 ### Target bed
@@ -83,6 +82,7 @@ Insert required location information for the following files and directories int
 
 
 ## Run TMLflow
+Make sure the TMLflow environment is activated.   
 The workflow uses different environments. It is recommended to create the environments before starting the workflow.  
 `snakemake --use-conda --conda-create-envs-only --cores {NumberOfCores}`  
 Start the workflow with:  
