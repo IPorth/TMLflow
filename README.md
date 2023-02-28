@@ -100,3 +100,8 @@ Here AF is set to 0.1
 `--genotype-filter-expression "AF < 0.1"`  
 Can be changed to e.g. 0.01 or any other threshold:  
 `--genotype-filter-expression "AF < 0.01"`  
+
+## Citation  
+>Porth, I., Hirsch, D., Ceribas, Y., Weidner, P., Weichert, W., Götze, T.O., Perner, S., Luley, K., Heyer, C.M., de la Torre, C., et al. (2023). 
+Comprehensive biomarker analysis of long-term response to trastuzumab in patients with HER2-positive advanced gastric or gastroesophageal adenocarcinoma. European Journal of Cancer 183, 119-130.  
+>doi: https://doi.org/10.1016/j.ejca.2023.01.022
